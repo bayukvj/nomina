@@ -1,0 +1,73 @@
+---
+import PublicLayout from '../layouts/PublicLayout.astro';
+
+---
+
+<PublicLayout title="Daftar Member" noindex>
+  <section class="relative overflow-hidden bg-rainbow-soft">
+    <div class="blob blob-brand -top-24 -right-16 h-80 w-80 opacity-40"></div>
+    <div class="blob blob-grape -bottom-24 -left-10 h-80 w-80 opacity-40"></div>
+
+    <div class="container-site relative z-10 flex min-h-[70vh] items-center justify-center py-14">
+      <div class="w-full max-w-md">
+        <div class="text-center">
+          <span class="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-400 text-xl font-black text-brand-ink shadow-pop">
+            ✨
+          </span>
+          <h1 class="font-display text-3xl font-extrabold tracking-tight text-ink-900">
+            Daftar Member
+          </h1>
+          <p class="mt-2 text-ink-600">
+            Satu klik, satu akun Google. Tidak perlu mengingat kata sandi.
+          </p>
+        </div>
+
+        <div class="mt-8 space-y-4 rounded-3xl border border-ink-100 bg-surface p-7 shadow-pop">
+          <a
+            href="/api/member/google"
+            class="flex w-full items-center justify-center gap-3 rounded-2xl border border-ink-200 bg-white px-5 py-3.5 text-sm font-bold text-on-white shadow-soft transition hover:-translate-y-0.5 hover:border-ink-300"
+          >
+            <svg viewBox="0 0 24 24" class="h-5 w-5" aria-hidden="true">
+              <path
+                fill="#4285F4"
+                d="M23.49 12.27c0-.79-.07-1.54-.19-2.27H12v4.51h6.47a5.4 5.4 0 0 1-2.4 3.58v2.77h3.86c2.26-2.09 3.56-5.17 3.56-8.59z"
+              />
+              <path
+                fill="#34A853"
+                d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.86-2.77c-1.08.72-2.45 1.16-4.07 1.16-3.13 0-5.78-2.11-6.73-4.96H1.28v3.09A12 12 0 0 0 12 24z"
+              />
+              <path
+                fill="#FBBC05"
+                d="M5.27 14.52A7.2 7.2 0 0 1 4.85 12c0-.88.15-1.73.42-2.52V6.39H1.28A12 12 0 0 0 0 12c0 1.94.47 3.77 1.28 5.39l3.99-2.87z"
+              />
+              <path
+                fill="#EA4335"
+                d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.7 0 3.99 2.47 1.28 6.39l3.99 2.61C6.22 6.86 8.87 4.75 12 4.75z"
+              />
+            </svg>
+            Daftar dengan Google
+          </a>
+
+          <ul class="space-y-2 text-sm text-ink-600">
+            <li class="flex items-start gap-2">
+              <span class="mt-0.5 text-brand-500">✓</span> Tidak perlu mengingat kata sandi
+            </li>
+            <li class="flex items-start gap-2">
+              <span class="mt-0.5 text-brand-500">✓</span> Simpan artikel favoritmu
+            </li>
+            <li class="flex items-start gap-2">
+              <span class="mt-0.5 text-brand-500">✓</span> Ringkasan berita pilihan tiap pagi
+            </li>
+          </ul>
+
+          <p class="text-center text-sm text-ink-500">
+            Sudah punya akun?
+            <a href="/masuk" class="font-bold text-brand-600 transition hover:text-brand-500">
+              Masuk di sini
+            </a>
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+</PublicLayout>

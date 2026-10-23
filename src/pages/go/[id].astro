@@ -1,0 +1,33 @@
+---
+import { recordAdClick, getAdById } from '../../lib/ads';
+
+const id = Number(Astro.params.id);
+const ad = id ? await getAdById(id) : null;
+
+if (!ad) {
+  return Astro.redirect('/');
+}
+
+await recordAdClick(ad.id);
+
+const target = ad.linkUrl?.trim() || '/';
+const safe = /^https?:\/\//i.test(target) ? target : '/';
+---
+
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>Mengalihkan…</title>
+  </head>
+  <body>
+    <p>Mengalihkan ke mitra iklan…</p>
+    <script is:inline define:vars={{ safe }}>
+      window.location.replace(safe);
+    </script>
+    <noscript>
+      <p><a href={safe}>Klik di sini untuk melanjutkan</a></p>
+    </noscript>
+  </body>
+</html>

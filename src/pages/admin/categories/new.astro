@@ -1,0 +1,30 @@
+---
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+import CategoryForm from '../../../components/admin/CategoryForm.astro';
+import { getAllCategories } from '../../../lib/content';
+import { saveCategory } from '../../../lib/admin/save';
+import { validateCsrfForm, ensureCsrfCookie, getCsrfSecret } from '../../../lib/csrf';
+
+const csrfToken = ensureCsrfCookie(Astro.cookies, getCsrfSecret());
+let error = '';
+
+if (Astro.request.method === 'POST') {
+  const form = await validateCsrfForm(Astro.cookies, Astro.request, getCsrfSecret()).catch(() => null);
+  if (!form) {
+    error = 'Permintaan tidak valid (CSRF).';
+  } else {
+    const result = await saveCategory(form);
+    if (result.error) {
+      error = result.error;
+    } else {
+      return Astro.redirect(`/admin/categories/${result.id}?msg=Kategori+berhasil+disimpan`);
+    }
+  }
+}
+
+const categories = await getAllCategories();
+---
+
+<AdminLayout title="Tambah Kategori" active="categories">
+  <CategoryForm categories={categories} error={error} csrfToken={csrfToken} />
+</AdminLayout>

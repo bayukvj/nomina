@@ -1,0 +1,262 @@
+---
+import { getSettings } from '../lib/settings';
+import { postUrl, categoryUrl, tagUrl } from '../lib/permalink';
+import { formatDate, readingTime, timeAgo } from '../lib/utils';
+import { resolveThumbnail } from '../lib/video';
+import { buildSrcset } from '../lib/images';
+
+interface Props {
+  post: any;
+  variant?: 'default' | 'featured' | 'horizontal' | 'compact';
+  showExcerpt?: boolean;
+  rank?: number;
+}
+
+const { post, variant = 'default', showExcerpt = true, rank } = Astro.props;
+const displayCategories = post.categories?.length
+  ? post.categories
+  : post.category
+    ? [post.category]
+    : [];
+const settings = await getSettings();
+const url = postUrl(
+  {
+    slug: post.slug,
+    id: post.id,
+    title: post.title,
+    categorySlug: post.category?.slug,
+    categoryName: post.category?.name,
+    publishedAt: post.publishedAt,
+    createdAt: post.createdAt,
+  },
+  settings,
+);
+const cover = resolveThumbnail(post.cover?.url, post.videoUrl);
+const coverSrcset = buildSrcset(post.cover?.sizes);
+const coverW = post.cover?.width ?? undefined;
+const coverH = post.cover?.height ?? undefined;
+const isVideo = post.type === 'video';
+const isPhoto = post.type === 'photo';
+
+/* palet acak-but-tetap per post supaya nuansavaries namun konsisten */
+const palettes = [
+  { badge: 'bg-brand-400 text-brand-ink', glow: 'from-brand-300 to-brand-500', emoji: '🗞️' },
+  { badge: 'bg-night-900 text-brand-300', glow: 'from-night-800 to-night-900', emoji: '🔥' },
+  { badge: 'bg-surface text-ink-900', glow: 'from-ink-100 to-ink-300', emoji: '🌿' },
+  { badge: 'bg-brand-100 text-brand-800', glow: 'from-brand-200 to-brand-400', emoji: '✨' },
+  { badge: 'bg-ink-100 text-ink-800', glow: 'from-ink-200 to-ink-400', emoji: '⚡' },
+  { badge: 'bg-brand-500 text-brand-ink', glow: 'from-brand-400 to-sun-400', emoji: '🎬' },
+];
+const palette = palettes[Math.abs(post.id ?? 0) % palettes.length];
+---
+
+{
+  variant === 'featured' && (
+    <article class="group relative overflow-hidden rounded-[2rem] bg-night-900 shadow-pop">
+      <a href={url} class="block">
+        <div class="aspect-[16/9] overflow-hidden">
+          {cover ? (
+            <img
+              src={cover}
+              srcset={coverSrcset}
+              sizes="(min-width: 1024px) 620px, 100vw"
+              width={coverW}
+              height={coverH}
+              alt={post.title}
+              loading="eager"
+              fetchpriority="high"
+              decoding="async"
+              class="h-full w-full object-cover transition duration-700 group-hover:scale-105"
+            />
+          ) : (
+            <div class={`relative flex h-full w-full items-center justify-center bg-gradient-to-br ${palette.glow}`}>
+              <span class="absolute top-4 left-4 text-3xl opacity-60">{palette.emoji}</span>
+            </div>
+          )}
+        </div>
+        <div class="absolute inset-0 bg-gradient-to-t from-night-900 via-night-900/60 to-transparent" />
+        <div class="absolute inset-x-0 bottom-0 p-6 sm:p-8">
+          {displayCategories.map((cat: any) => (
+            <span class="chip mb-3 bg-brand-400 text-brand-ink shadow-soft">
+              {cat.name}
+            </span>
+          ))}
+          <h2 class="font-display text-2xl font-extrabold leading-tight text-white sm:text-3xl lg:text-4xl">
+            {post.title}
+          </h2>
+          {showExcerpt && post.excerpt && (
+            <p class="mt-3 hidden max-w-2xl text-sm leading-relaxed text-night-fg-muted sm:line-clamp-2 sm:block">
+              {post.excerpt}
+            </p>
+          )}
+          <div class="mt-4 flex flex-wrap items-center gap-2 text-xs text-night-fg-muted">
+            {post.author && <span class="font-bold text-white">{post.author.name}</span>}
+            <span class="h-1 w-1 rounded-full bg-ink-500" />
+            <time datetime={new Date(post.publishedAt ?? post.createdAt).toISOString()}>
+              {formatDate(post.publishedAt ?? post.createdAt, 'short')}
+            </time>
+            {settings.showReadingTime === 'true' && (
+              <>
+                <span class="h-1 w-1 rounded-full bg-ink-500" />
+                <span>{readingTime(post.content)} menit baca</span>
+              </>
+            )}
+          </div>
+        </div>
+      </a>
+    </article>
+  )
+}
+
+{
+  variant === 'horizontal' && (
+    <article class="group flex gap-4 border-b border-ink-100 pb-5 last:border-0 last:pb-0">
+      <a href={url} class="shrink-0">
+        <div class="h-24 w-32 overflow-hidden rounded-2xl bg-ink-100 sm:h-28 sm:w-40">
+          {cover ? (
+            <img
+              src={cover}
+              srcset={coverSrcset}
+              sizes="160px"
+              width={coverW}
+              height={coverH}
+              alt={post.title}
+              loading="lazy"
+              decoding="async"
+              class="h-full w-full object-cover transition duration-500 group-hover:scale-105"
+            />
+          ) : (
+            <div class={`flex h-full w-full items-center justify-center bg-gradient-to-br ${palette.glow} text-2xl`}>
+              {palette.emoji}
+            </div>
+          )}
+        </div>
+      </a>
+      <div class="min-w-0">
+        <div class="flex items-center gap-2">
+          {displayCategories.map((cat: any) => (
+            <a
+              href={categoryUrl(cat.slug, settings)}
+              class={`chip ${palette.badge} hover:opacity-80`}
+            >
+              {cat.name}
+            </a>
+          ))}
+          {isVideo && <span class="chip bg-night-900 text-white">Video</span>}
+        </div>
+        <h3 class="mt-2 line-clamp-2 text-base font-bold leading-snug text-ink-900 group-hover:text-brand-700 sm:text-lg">
+          <a href={url}>{post.title}</a>
+        </h3>
+        <div class="mt-2 flex items-center gap-2 text-xs text-ink-500">
+          <time datetime={new Date(post.publishedAt ?? post.createdAt).toISOString()}>
+            {timeAgo(post.publishedAt ?? post.createdAt)}
+          </time>
+        </div>
+      </div>
+    </article>
+  )
+}
+
+{
+  variant === 'compact' && (
+    <article class="group flex gap-3">
+      <a href={url} class="shrink-0">
+        <div class="relative h-16 w-20 overflow-hidden rounded-xl bg-ink-100">
+          {cover ? (
+            <img
+              src={cover}
+              srcset={coverSrcset}
+              sizes="160px"
+              width={coverW}
+              height={coverH}
+              alt={post.title}
+              loading="lazy"
+              decoding="async"
+              class="h-full w-full object-cover transition duration-500 group-hover:scale-105"
+            />
+          ) : (
+            <div class={`flex h-full w-full items-center justify-center bg-gradient-to-br ${palette.glow} text-lg`}>
+              {palette.emoji}
+            </div>
+          )}
+          {rank && (
+            <span
+              class={`absolute top-0 left-0 flex h-6 min-w-6 items-center justify-center rounded-br-xl px-1 text-xs font-black text-brand-ink ${
+                rank <= 3 ? 'bg-brand-400' : 'bg-night-900 text-white'
+              }`}
+            >
+              {rank}
+            </span>
+          )}
+        </div>
+      </a>
+      <div class="min-w-0">
+        <h4 class="line-clamp-2 text-sm font-semibold leading-snug text-ink-900 group-hover:text-brand-700">
+          <a href={url}>{post.title}</a>
+        </h4>
+        <span class="mt-1 block text-[11px] text-ink-500">
+          {formatDate(post.publishedAt ?? post.createdAt, 'short')}
+        </span>
+      </div>
+    </article>
+  )
+}
+
+{
+  variant === 'default' && (
+    <article class="group card-modern card-modern-hover flex flex-col overflow-hidden">
+      <a href={url} class="block overflow-hidden">
+        <div class="aspect-[16/10] overflow-hidden bg-ink-100">
+          {cover ? (
+            <img
+              src={cover}
+              srcset={coverSrcset}
+              sizes="(min-width: 1024px) 360px, (min-width: 640px) 50vw, 100vw"
+              width={coverW}
+              height={coverH}
+              alt={post.title}
+              loading="lazy"
+              decoding="async"
+              class="h-full w-full object-cover transition duration-700 group-hover:scale-105"
+            />
+          ) : (
+            <div class={`flex h-full w-full items-center justify-center bg-gradient-to-br ${palette.glow} text-5xl`}>
+              {palette.emoji}
+            </div>
+          )}
+        </div>
+      </a>
+      <div class="flex flex-1 flex-col p-5">
+        <div class="flex flex-wrap items-center gap-2">
+          {displayCategories.map((cat: any) => (
+            <a
+              href={categoryUrl(cat.slug, settings)}
+              class={`chip ${palette.badge} hover:opacity-80`}
+            >
+              {cat.name}
+            </a>
+          ))}
+          {isVideo && <span class="chip bg-night-900 text-white">Video</span>}
+          {isPhoto && <span class="chip bg-night-900 text-white">Foto</span>}
+        </div>
+        <h3 class="mt-3 line-clamp-3 text-base font-bold leading-snug text-ink-900 group-hover:text-brand-700 sm:text-lg">
+          <a href={url}>{post.title}</a>
+        </h3>
+        {showExcerpt && post.excerpt && (
+          <p class="mt-2 line-clamp-3 text-sm leading-relaxed text-ink-600">{post.excerpt}</p>
+        )}
+        <div class="mt-auto flex items-center gap-2 pt-4 text-xs text-ink-500">
+          <time datetime={new Date(post.publishedAt ?? post.createdAt).toISOString()}>
+            {formatDate(post.publishedAt ?? post.createdAt, 'short')}
+          </time>
+          {post.author && (
+            <>
+              <span class="h-1 w-1 rounded-full bg-ink-300" />
+              <span class="truncate">{post.author.name}</span>
+            </>
+          )}
+        </div>
+      </div>
+    </article>
+  )
+}

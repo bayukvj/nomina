@@ -1,0 +1,87 @@
+---
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+import Icon from '../../../components/admin/Icon.astro';
+import { getAllCategories } from '../../../lib/content';
+import { deleteCategory } from '../../../lib/admin/save';
+
+const categories = await getAllCategories();
+const deleteId = Astro.url.searchParams.get('delete');
+if (deleteId) {
+  await deleteCategory(Number(deleteId));
+  return Astro.redirect('/admin/categories?msg=Kategori+berhasil+dihapus');
+}
+const msg = Astro.url.searchParams.get('msg');
+---
+
+<AdminLayout title="Kategori" active="categories">
+  {
+    msg && (
+      <div class="mb-5 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700">
+        {msg}
+      </div>
+    )
+  }
+
+  <div class="mb-5 flex items-center justify-between">
+    <p class="text-sm text-ink-500">{categories.length} kategori</p>
+    <a
+      href="/admin/categories/new"
+      class="inline-flex items-center gap-2 rounded-lg bg-brand-400 px-4 py-2.5 text-sm font-bold text-brand-ink hover:bg-brand-300"
+    >
+      <Icon name="plus" class="h-4 w-4" /> Tambah Kategori
+    </a>
+  </div>
+
+  <div class="overflow-hidden rounded-xl border border-ink-200 bg-surface">
+    <table class="w-full text-sm">
+      <thead class="bg-ink-50 text-left text-xs uppercase tracking-wider text-ink-500">
+        <tr>
+          <th class="px-4 py-3">Nama</th>
+          <th class="px-4 py-3">Slug</th>
+          <th class="px-4 py-3">Deskripsi</th>
+          <th class="px-4 py-3 text-right">Post</th>
+          <th class="px-4 py-3 text-right">Aksi</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-ink-100">
+        {
+          categories.length === 0 && (
+            <tr>
+              <td colspan="5" class="px-4 py-14 text-center text-ink-500">Belum ada kategori.</td>
+            </tr>
+          )
+        }
+        {
+          categories.map((c) => (
+            <tr class="hover:bg-ink-50/60">
+              <td class="px-4 py-3 font-semibold text-ink-900">
+                {c.parentId && <span class="mr-1 text-ink-400">↳</span>}
+                {c.name}
+              </td>
+              <td class="px-4 py-3 text-ink-500">/{c.slug}</td>
+              <td class="max-w-md truncate px-4 py-3 text-ink-600">{c.description ?? '—'}</td>
+              <td class="px-4 py-3 text-right text-ink-600">{c.count}</td>
+              <td class="px-4 py-3">
+                <div class="flex justify-end gap-1">
+                  <a
+                    href={`/admin/categories/${c.id}`}
+                    class="rounded p-1.5 text-ink-400 hover:text-brand-600"
+                  >
+                    <Icon name="edit" class="h-4 w-4" />
+                  </a>
+                  <a
+                    href={`/admin/categories?delete=${c.id}`}
+                    data-confirm="Hapus kategori ini?"
+                    class="rounded p-1.5 text-ink-400 hover:text-brand-600"
+                  >
+                    <Icon name="trash" class="h-4 w-4" />
+                  </a>
+                </div>
+              </td>
+            </tr>
+          ))
+        }
+      </tbody>
+    </table>
+  </div>
+</AdminLayout>

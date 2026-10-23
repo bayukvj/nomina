@@ -1,0 +1,227 @@
+---
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+import Icon from '../../../components/admin/Icon.astro';
+import { getMenusWithItems, getMenuItems, getMenuById } from '../../../lib/content';
+import { saveMenu, saveMenuItems, deleteMenu } from '../../../lib/admin/save';
+import { validateCsrfForm, ensureCsrfCookie, getCsrfSecret } from '../../../lib/csrf';
+
+const csrfToken = ensureCsrfCookie(Astro.cookies, getCsrfSecret());
+let message = '';
+let error = '';
+
+if (Astro.request.method === 'POST') {
+  const form = await validateCsrfForm(Astro.cookies, Astro.request, getCsrfSecret()).catch(() => null);
+  if (!form) {
+    error = 'Permintaan tidak valid (CSRF).';
+  } else {
+    const action = String(form.get('_action') ?? '');
+
+    if (action === 'create_menu') {
+      const result = await saveMenu(form);
+      if (result.error) error = result.error;
+      else return Astro.redirect(`/admin/menus?id=${result.id}&msg=Menu+dibuat`);
+    } else if (action === 'update_menu') {
+      const menuId = Number(form.get('menuId'));
+      await saveMenu(form, menuId);
+      const result = await saveMenuItems(form, menuId);
+      message = 'Menu berhasil disimpan.';
+    }
+  }
+}
+
+const deleteId = Astro.url.searchParams.get('delete');
+if (deleteId) {
+  await deleteMenu(Number(deleteId));
+  return Astro.redirect('/admin/menus?msg=Menu+dihapus');
+}
+
+const menus = await getMenusWithItems();
+const selectedId = Number(Astro.url.searchParams.get('id') ?? menus[0]?.id ?? 0);
+const selectedMenu = selectedId ? await getMenuById(selectedId) : null;
+const items = selectedMenu ? await getMenuItems(selectedMenu.id) : [];
+const msg = Astro.url.searchParams.get('msg');
+if (msg) message = msg;
+---
+
+<AdminLayout title="Menu" active="menus" wide>
+  {
+    (message || error) && (
+      <div
+        class={`mb-5 rounded-lg border px-4 py-3 text-sm font-medium ${
+          error ? 'border-brand-200 bg-brand-50 text-brand-700' : 'border-emerald-200 bg-emerald-50 text-emerald-700'
+        }`}
+      >
+        {error || message}
+      </div>
+    )
+  }
+
+  <div class="grid gap-6 lg:grid-cols-[320px_1fr]">
+    <div class="space-y-5">
+      <section class="rounded-xl border border-ink-200 bg-surface p-5">
+        <h2 class="mb-3 text-base font-black text-ink-900">Daftar Menu</h2>
+        <ul class="space-y-1">
+          {
+            menus.map((m) => (
+              <li>
+                <a
+                  href={`/admin/menus?id=${m.id}`}
+                  class={`flex items-center justify-between rounded-lg px-3 py-2 text-sm font-medium ${
+                    m.id === selectedId ? 'bg-brand-400 text-brand-ink' : 'text-ink-700 hover:bg-ink-50'
+                  }`}
+                >
+                  <span>{m.name}</span>
+                  <span class={`text-xs ${m.id === selectedId ? 'text-brand-100' : 'text-ink-400'}`}>
+                    {m.location}
+                  </span>
+                </a>
+              </li>
+            ))
+          }
+        </ul>
+        <form method="post" class="mt-4 space-y-2 border-t border-ink-100 pt-4">
+          <input type="hidden" name="_action" value="create_menu" />
+          <input type="hidden" name="_csrf" value={csrfToken} />
+          <input
+            type="text"
+            name="name"
+            required
+            placeholder="Nama menu (mis. Footer)"
+            class="w-full rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-brand-500"
+          />
+          <select name="location" class="w-full rounded-lg border border-ink-200 px-3 py-2 text-sm">
+            <option value="primary">primary — Navigasi utama</option>
+            <option value="footer">footer — Footer</option>
+            <option value="legal">legal — Footer legal</option>
+            <option value="sidebar">sidebar — Sidebar</option>
+            <option value="social">social — Media sosial</option>
+          </select>
+          <button type="submit" class="w-full rounded-lg bg-night-800 px-4 py-2 text-sm font-bold text-white hover:bg-ink-700">
+            Tambah Menu
+          </button>
+        </form>
+      </section>
+    </div>
+
+    {
+      selectedMenu && (
+        <section class="rounded-xl border border-ink-200 bg-surface p-5">
+          <div class="mb-5 flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 class="text-base font-black text-ink-900">Item Menu: {selectedMenu.name}</h2>
+              <p class="text-xs text-ink-500">
+                Lokasi: <code>{selectedMenu.location}</code>
+              </p>
+            </div>
+            <a
+              href={`/admin/menus?delete=${selectedMenu.id}`}
+              data-confirm="Hapus menu beserta seluruh itemnya?"
+              class="inline-flex items-center gap-1.5 rounded-lg border border-ink-200 px-3 py-1.5 text-xs font-semibold text-brand-600 hover:border-brand-400"
+            >
+              <Icon name="trash" class="h-3.5 w-3.5" /> Hapus Menu
+            </a>
+          </div>
+
+          <form method="post" id="menu-form">
+             <input type="hidden" name="_action" value="update_menu" />
+             <input type="hidden" name="_csrf" value={csrfToken} />
+             <input type="hidden" name="menuId" value={selectedMenu.id} />
+
+            <div class="mb-3 grid grid-cols-12 gap-2 text-xs font-semibold uppercase tracking-wider text-ink-500">
+              <span class="col-span-4">Label</span>
+              <span class="col-span-4">URL</span>
+              <span class="col-span-2">Target</span>
+              <span class="col-span-1">Induk</span>
+              <span class="col-span-1">Aktif</span>
+            </div>
+
+            <div id="items" class="space-y-2">
+              {items.map((item) => (
+                <div class="menu-row grid grid-cols-12 items-center gap-2">
+                  <input
+                    type="text"
+                    name="item_label"
+                    value={item.label}
+                    placeholder="Label"
+                    class="col-span-4 rounded-lg border border-ink-200 px-2.5 py-2 text-sm outline-none focus:border-brand-500"
+                  />
+                  <input
+                    type="text"
+                    name="item_url"
+                    value={item.url}
+                    placeholder="/tentang-kami"
+                    class="col-span-4 rounded-lg border border-ink-200 px-2.5 py-2 text-sm outline-none focus:border-brand-500"
+                  />
+                  <select
+                    name="item_target"
+                    class="col-span-2 rounded-lg border border-ink-200 px-2 py-2 text-sm"
+                  >
+                    <option value="_self" selected={item.target === '_self'}>
+                      _self
+                    </option>
+                    <option value="_blank" selected={item.target === '_blank'}>
+                      _blank
+                    </option>
+                  </select>
+                  <input
+                    type="number"
+                    name="item_parent"
+                    value={item.parentId ?? ''}
+                    placeholder="—"
+                    class="col-span-1 rounded-lg border border-ink-200 px-2 py-2 text-sm"
+                  />
+                  <select name="item_visible" class="col-span-1 rounded-lg border border-ink-200 px-1 py-2 text-sm">
+                    <option value="true" selected={item.isVisible}>
+                      ✓
+                    </option>
+                    <option value="false" selected={!item.isVisible}>
+                      ✕
+                    </option>
+                  </select>
+                </div>
+              ))}
+            </div>
+
+            <div class="mt-4 flex flex-wrap gap-2">
+              <button
+                type="button"
+                id="add-row"
+                class="rounded-lg border border-ink-200 px-3 py-2 text-sm font-semibold text-ink-700 hover:border-brand-500"
+              >
+                + Tambah Item
+              </button>
+              <button
+                type="submit"
+                class="rounded-lg bg-brand-400 px-5 py-2 text-sm font-bold text-brand-ink hover:bg-brand-300"
+              >
+                Simpan Menu
+              </button>
+            </div>
+          </form>
+        </section>
+      )
+    }
+  </div>
+</AdminLayout>
+
+<script is:inline>
+  document.getElementById('add-row')?.addEventListener('click', () => {
+    const container = document.getElementById('items');
+    const row = document.createElement('div');
+    row.className = 'menu-row grid grid-cols-12 items-center gap-2';
+    row.innerHTML = `
+      <input type="text" name="item_label" placeholder="Label" class="col-span-4 rounded-lg border border-ink-200 px-2.5 py-2 text-sm" />
+      <input type="text" name="item_url" placeholder="/halaman" class="col-span-4 rounded-lg border border-ink-200 px-2.5 py-2 text-sm" />
+      <select name="item_target" class="col-span-2 rounded-lg border border-ink-200 px-2 py-2 text-sm">
+        <option value="_self">_self</option>
+        <option value="_blank">_blank</option>
+      </select>
+      <input type="number" name="item_parent" placeholder="—" class="col-span-1 rounded-lg border border-ink-200 px-2 py-2 text-sm" />
+      <select name="item_visible" class="col-span-1 rounded-lg border border-ink-200 px-1 py-2 text-sm">
+        <option value="true">✓</option>
+        <option value="false">✕</option>
+      </select>
+    `;
+    container?.appendChild(row);
+  });
+</script>

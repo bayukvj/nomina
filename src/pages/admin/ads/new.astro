@@ -1,0 +1,34 @@
+---
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+import AdForm from '../../../components/admin/AdForm.astro';
+import { getAllMedia } from '../../../lib/content';
+import { getAdCategories } from '../../../lib/ads';
+import { saveAd, deleteAd } from '../../../lib/admin/save';
+import { validateCsrfForm, ensureCsrfCookie, getCsrfSecret } from '../../../lib/csrf';
+
+const csrfToken = ensureCsrfCookie(Astro.cookies, getCsrfSecret());
+let error = '';
+
+if (Astro.request.method === 'POST') {
+  const form = await validateCsrfForm(Astro.cookies, Astro.request, getCsrfSecret()).catch(() => null);
+  if (!form) {
+    error = 'Permintaan tidak valid (CSRF).';
+  } else {
+    const result = await saveAd(form);
+    if (result.error) {
+      error = result.error;
+    } else {
+      return Astro.redirect(`/admin/ads/${result.id}?msg=Iklan+berhasil+disimpan`);
+    }
+  }
+}
+
+const [media, categories] = await Promise.all([getAllMedia(), getAdCategories()]);
+const mediaOptions = media
+  .filter((m) => m.mimeType?.startsWith('image/'))
+  .map((m: any) => ({ id: m.id, url: m.url, filename: m.originalName }));
+---
+
+<AdminLayout title="Tambah Iklan" active="ads">
+  <AdForm mediaOptions={mediaOptions} categories={categories} error={error} csrfToken={csrfToken} />
+</AdminLayout>

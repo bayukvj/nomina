@@ -1,0 +1,78 @@
+---
+import { ensureCsrfCookie, getCsrfSecret } from '../lib/csrf';
+
+interface Props {
+  postId: number;
+  requireModeration?: boolean;
+}
+
+const { postId, requireModeration = true } = Astro.props;
+const csrfToken = ensureCsrfCookie(Astro.cookies, getCsrfSecret());
+---
+
+<form
+  method="post"
+  action="/api/komentar"
+  class="mt-8 rounded-3xl border border-ink-100 bg-surface p-6 shadow-soft"
+>
+  <h3 class="mb-5 font-display text-lg font-extrabold text-ink-900">Tinggalkan Komentar</h3>
+  <input type="hidden" name="postId" value={postId} />
+  <input type="hidden" name="_csrf" value={csrfToken} />
+
+  <div class="grid gap-4 sm:grid-cols-2">
+    <label class="block">
+      <span class="mb-1.5 block text-xs font-bold text-ink-600">
+        Nama <span class="text-brand-600">*</span>
+      </span>
+      <input
+        type="text"
+        name="name"
+        required
+        maxlength="80"
+        placeholder="Nama kamu"
+        class="w-full rounded-2xl border border-ink-200 bg-ink-50 px-4 py-2.5 text-sm outline-none transition focus:border-brand-400 focus:bg-surface focus:ring-4 focus:ring-brand-100"
+      />
+    </label>
+    <label class="block">
+      <span class="mb-1.5 block text-xs font-bold text-ink-600">Email</span>
+      <input
+        type="email"
+        name="email"
+        maxlength="160"
+        placeholder="email@domain.com"
+        class="w-full rounded-2xl border border-ink-200 bg-ink-50 px-4 py-2.5 text-sm outline-none transition focus:border-brand-400 focus:bg-surface focus:ring-4 focus:ring-brand-100"
+      />
+    </label>
+  </div>
+
+  <label class="mt-4 block">
+    <span class="mb-1.5 block text-xs font-bold text-ink-600">
+      Komentar <span class="text-brand-600">*</span>
+    </span>
+    <textarea
+      name="body"
+      required
+      rows="4"
+      maxlength="2000"
+      placeholder="Bagikan pendapatmu…"
+      class="w-full rounded-2xl border border-ink-200 bg-ink-50 px-4 py-3 text-sm outline-none transition focus:border-brand-400 focus:bg-surface focus:ring-4 focus:ring-brand-100"
+    ></textarea>
+  </label>
+
+  <input type="text" name="website" class="hidden" tabindex="-1" autocomplete="off" />
+
+  <button
+    type="submit"
+    class="mt-5 rounded-full bg-brand-400 px-6 py-3 text-sm font-extrabold text-brand-ink shadow-pop transition hover:-translate-y-0.5 hover:opacity-90"
+  >
+    Kirim Komentar →
+  </button>
+
+  {
+    requireModeration && (
+      <p class="mt-2 text-xs text-ink-500">
+        Komentar akan ditinjau oleh redaksi sebelum ditampilkan.
+      </p>
+    )
+  }
+</form>

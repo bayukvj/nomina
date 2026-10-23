@@ -1,0 +1,31 @@
+---
+import { renderContent } from '../lib/content-render';
+import Breadcrumb from './Breadcrumb.astro';
+import Sidebar from './Sidebar.astro';
+
+interface Props {
+  page: any;
+}
+
+const { page } = Astro.props;
+const html = await renderContent(page.content, page.format);
+---
+
+<Breadcrumb items={[{ label: 'Beranda', href: '/' }, { label: page.title }]} />
+
+<div class="container-site grid gap-10 pb-12 lg:grid-cols-[1fr_320px]">
+  <article class="min-w-0">
+    <header class="relative mb-8 overflow-hidden rounded-3xl bg-rainbow-soft p-6 sm:p-8">
+      <div class="blob blob-brand -top-16 -right-12 h-48 w-48 opacity-30"></div>
+      <div class="blob blob-mint -bottom-20 -left-10 h-48 w-48 opacity-25"></div>
+      <h1 class="relative z-10 font-display text-3xl font-extrabold tracking-tight text-ink-900 sm:text-4xl">
+        {page.title}
+      </h1>
+    </header>
+    <div class="card-modern p-6 sm:p-8">
+      <div class="prose-media" set:html={html} />
+    </div>
+  </article>
+
+  <Sidebar />
+</div>

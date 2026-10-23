@@ -1,0 +1,350 @@
+---
+interface Option {
+  value: string | number;
+  label: string;
+}
+
+interface Props {
+  name: string;
+  label: string;
+  type?:
+    | 'text'
+    | 'textarea'
+    | 'editor'
+    | 'select'
+    | 'multiselect'
+    | 'switch'
+    | 'date'
+    | 'number'
+    | 'password'
+    | 'url'
+    | 'email'
+    | 'color'
+    | 'media'
+    | 'tags'
+    | 'hidden';
+  value?: any;
+  options?: Option[];
+  required?: boolean;
+  help?: string;
+  rows?: number;
+  placeholder?: string;
+  mediaOptions?: { url: string; id: number; filename: string }[];
+  presets?: string[];
+  mono?: boolean;
+  min?: number;
+  max?: number;
+  step?: number;
+}
+
+const {
+  name,
+  label,
+  type = 'text',
+  value,
+  options = [],
+  required = false,
+  help = '',
+  rows = 4,
+  placeholder = '',
+  mediaOptions = [],
+  presets = [
+    '#e11d48',
+    '#f43f5e',
+    '#fb7185',
+    '#facc15',
+    '#fbbf24',
+    '#eab308',
+    '#10b981',
+    '#14b8a6',
+    '#0ea5e9',
+    '#6366f1',
+    '#a855f7',
+    '#0a0a0a',
+    '#525252',
+    '#ffffff',
+  ],
+  mono = false,
+  min,
+  max,
+  step,
+} = Astro.props;
+
+const inputClass =
+  'w-full rounded-lg border border-ink-200 bg-surface px-3 py-2 text-sm text-ink-800 outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-100';
+
+const selected = Array.isArray(value) ? value.map(String) : [];
+
+const colorValue =
+  typeof value === 'string' && /^#[0-9a-fA-F]{6}$/.test(value) ? value : '#e11d48';
+---
+
+<div class="space-y-1.5">
+  {
+    type !== 'hidden' && (
+      <label for={`field-${name}`} class="block text-sm font-semibold text-ink-800">
+        {label}
+        {required && <span class="text-brand-600">*</span>}
+      </label>
+    )
+  }
+
+  {
+    type === 'hidden' && <input type="hidden" name={name} value={value ?? ''} />
+  }
+
+  {
+    type === 'text' && (
+      <input
+        id={`field-${name}`}
+        type="text"
+        name={name}
+        value={value ?? ''}
+        required={required}
+        placeholder={placeholder}
+        class={inputClass}
+      />
+    )
+  }
+
+  {
+    type === 'email' && (
+      <input
+        id={`field-${name}`}
+        type="email"
+        name={name}
+        value={value ?? ''}
+        required={required}
+        placeholder={placeholder}
+        class={inputClass}
+      />
+    )
+  }
+
+  {
+    type === 'url' && (
+      <input
+        id={`field-${name}`}
+        type="url"
+        name={name}
+        value={value ?? ''}
+        required={required}
+        placeholder={placeholder}
+        class={inputClass}
+      />
+    )
+  }
+
+  {
+    type === 'number' && (
+      <input
+        id={`field-${name}`}
+        type="number"
+        name={name}
+        value={value ?? ''}
+        required={required}
+        min={min}
+        max={max}
+        step={step}
+        class={inputClass}
+      />
+    )
+  }
+
+  {
+    type === 'password' && (
+      <input
+        id={`field-${name}`}
+        type="password"
+        name={name}
+        required={required}
+        placeholder={placeholder}
+        autocomplete="new-password"
+        class={inputClass}
+      />
+    )
+  }
+
+  {
+    type === 'date' && (
+      <input
+        id={`field-${name}`}
+        type="datetime-local"
+        name={name}
+        value={value ?? ''}
+        required={required}
+        class={inputClass}
+      />
+    )
+  }
+
+  {
+    type === 'textarea' && (
+      <textarea
+        id={`field-${name}`}
+        name={name}
+        rows={rows}
+        required={required}
+        placeholder={placeholder}
+        spellcheck={mono ? 'false' : undefined}
+        class={`${inputClass} ${mono ? 'font-mono text-[13px] leading-relaxed' : ''}`}
+      >
+        {value ?? ''}
+      </textarea>
+    )
+  }
+
+  {
+    type === 'editor' && (
+      <div>
+        <textarea
+          id={`field-${name}`}
+          name={name}
+          rows={rows}
+          required={required}
+          placeholder={placeholder}
+          class={`${inputClass} font-mono text-[13px] leading-relaxed`}
+        >
+          {value ?? ''}
+        </textarea>
+        <p class="mt-1 text-xs text-ink-500">
+          Mendukung HTML. Gunakan tag <code>&lt;p&gt;</code>, <code>&lt;h2&gt;</code>,{' '}
+          <code>&lt;blockquote&gt;</code>, <code>&lt;ul&gt;</code>, <code>&lt;img&gt;</code>, dan{' '}
+          <code>&lt;a&gt;</code>.
+        </p>
+      </div>
+    )
+  }
+
+  {
+    type === 'select' && (
+      <select id={`field-${name}`} name={name} required={required} class={inputClass}>
+        <option value="">— Pilih —</option>
+        {options.map((o) => (
+          <option value={o.value} selected={String(o.value) === String(value ?? '')}>
+            {o.label}
+          </option>
+        ))}
+      </select>
+    )
+  }
+
+  {
+    type === 'multiselect' && (
+      <div
+        id={`field-${name}`}
+        class="max-h-64 space-y-1 overflow-y-auto rounded-lg border border-ink-200 p-3"
+      >
+        {options.map((o) => (
+          <label class="flex items-center gap-2 rounded px-1.5 py-1 text-sm hover:bg-ink-50">
+            <input
+              type="checkbox"
+              name={name}
+              value={o.value}
+              checked={selected.includes(String(o.value))}
+              class="h-4 w-4 rounded border-ink-300 text-brand-600 focus:ring-brand-500"
+            />
+            <span class="text-ink-700">{o.label}</span>
+          </label>
+        ))}
+      </div>
+    )
+  }
+
+  {
+    type === 'color' && (
+      <div class="space-y-2" data-color-field>
+        <div class="flex flex-wrap items-center gap-2">
+          <input
+            type="color"
+            value={colorValue}
+            data-color-native
+            class="h-10 w-12 cursor-pointer rounded-lg border border-ink-200 bg-surface p-1"
+            aria-label="Pilih warna"
+          />
+          <input
+            type="text"
+            name={name}
+            value={value ?? ''}
+            data-color-text
+            placeholder="#e11d48"
+            class="w-28 rounded-lg border border-ink-200 bg-surface px-3 py-2 font-mono text-sm outline-none focus:border-brand-400 focus:ring-4 focus:ring-brand-100"
+          />
+          <span class="text-xs text-ink-500">Klik warna, atau pilih dari palet di bawah.</span>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          {presets.map((c) => (
+            <button
+              type="button"
+              data-color-preset={c}
+              title={c}
+              class="h-7 w-7 rounded-full border-2 border-ink-200 transition hover:scale-110 hover:border-ink-900"
+              style={'background-color: ' + c}
+            />
+          ))}
+        </div>
+      </div>
+    )
+  }
+
+  {
+    type === 'switch' && (
+      <label class="inline-flex cursor-pointer items-center gap-3">
+        <input type="hidden" name={name} value="false" />
+        <input
+          type="checkbox"
+          name={name}
+          value="true"
+          checked={value === true || value === 'true'}
+          class="peer sr-only"
+        />
+        <span class="relative h-6 w-11 rounded-full bg-ink-300 transition peer-checked:bg-brand-600 peer-focus:outline peer-focus:ring-2 peer-focus:ring-brand-200">
+          <span class="absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white transition peer-checked:translate-x-5">
+          </span>
+        </span>
+        <span class="text-sm text-ink-600">{help || 'Aktif'}</span>
+      </label>
+    )
+  }
+
+  {
+    type === 'media' && (
+      <div class="space-y-2">
+        <input
+          id={`field-${name}`}
+          type="text"
+          name={name}
+          value={value ?? ''}
+          placeholder="/uploads/2026/10/foto.jpg atau https://…"
+          list={`media-list-${name}`}
+          class={inputClass}
+        />
+        <datalist id={`media-list-${name}`}>
+          {mediaOptions.map((m) => (
+            <option value={m.url}>
+              {m.filename}
+            </option>
+          ))}
+        </datalist>
+        {value && (
+          <img src={value} alt="" class="h-32 w-auto rounded-lg border border-ink-200 object-cover" />
+        )}
+      </div>
+    )
+  }
+
+  {
+    type === 'tags' && (
+      <input
+        id={`field-${name}`}
+        type="text"
+        name={name}
+        value={Array.isArray(value) ? value.join(', ') : (value ?? '')}
+        placeholder="pisahkan dengan koma"
+        class={inputClass}
+      />
+    )
+  }
+
+  {help && type !== 'switch' && <p class="text-xs text-ink-500">{help}</p>}
+</div>

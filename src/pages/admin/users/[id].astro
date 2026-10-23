@@ -1,0 +1,52 @@
+---
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+import UserForm from '../../../components/admin/UserForm.astro';
+import { getUserById } from '../../../lib/content';
+import { saveUser } from '../../../lib/admin/save';
+import { getAllMedia } from '../../../lib/content';
+import { hashPassword } from '../../../lib/auth';
+import { validateCsrfForm, ensureCsrfCookie, getCsrfSecret } from '../../../lib/csrf';
+
+const id = Number(Astro.params.id);
+const user = await getUserById(id);
+
+if (!user) {
+  return Astro.redirect('/admin/users?msg=Pengguna+tidak+ditemukan&type=error');
+}
+
+const csrfToken = ensureCsrfCookie(Astro.cookies, getCsrfSecret());
+let error = '';
+
+if (Astro.request.method === 'POST') {
+  const form = await validateCsrfForm(Astro.cookies, Astro.request, getCsrfSecret()).catch(() => null);
+  if (!form) {
+    error = 'Permintaan tidak valid (CSRF).';
+  } else {
+    const result = await saveUser(form, id, hashPassword);
+    if (result.error) {
+      error = result.error;
+    } else {
+      return Astro.redirect(`/admin/users/${id}?msg=Pengguna+berhasil+diperbarui`);
+    }
+  }
+}
+const msg = Astro.url.searchParams.get('msg');
+
+const mediaItems = (await getAllMedia()).map((m) => ({
+  id: m.id,
+  url: m.url,
+  filename: m.originalName,
+  mimeType: m.mimeType,
+}));
+---
+
+<AdminLayout title="Edit Pengguna" active="users">
+  {
+    msg && (
+      <div class="mb-5 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700">
+        {msg}
+      </div>
+    )
+  }
+  <UserForm user={user} error={error} media={mediaItems} csrfToken={csrfToken} />
+</AdminLayout>

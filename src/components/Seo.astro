@@ -1,0 +1,125 @@
+---
+import { getSettings } from '../lib/settings';
+import { absoluteUrl } from '../lib/permalink';
+
+interface Props {
+  title?: string;
+  description?: string;
+  image?: string;
+  canonical?: string;
+  type?: 'website' | 'article';
+  publishedTime?: Date | string | null;
+  modifiedTime?: Date | string | null;
+  keywords?: string;
+  noindex?: boolean;
+  schema?: Record<string, unknown> | null;
+  siteUrl?: string;
+}
+
+const {
+  title,
+  description,
+  image,
+  canonical,
+  type = 'website',
+  publishedTime,
+  modifiedTime,
+  keywords,
+  noindex = false,
+  schema = null,
+  siteUrl = process.env.SITE_URL ?? 'http://localhost:4321',
+} = Astro.props;
+
+const settings = await getSettings();
+
+/** rapikan nilai pengaturan: trim + hilangkan baris baru berlebih */
+const clean = (value: string | undefined | null, max = 320) =>
+  (value ?? '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, max);
+
+const pageTitle = title
+  ? settings.seoTitleFormat
+      .replace('{siteName}', settings.siteName)
+      .replace('{title}', clean(title, 120))
+      .replace('{category}', '')
+      .replace('{tag}', '')
+      .replace('{page}', 'Halaman')
+      .replace(/\s*\|\s*$/, '')
+      .replace(/\s{2,}/g, ' ')
+      .trim()
+  : `${settings.siteName} — ${clean(settings.siteTagline, 90)}`;
+
+const metaDescription = clean(
+  description || settings.metaDescription || settings.siteDescription || '',
+  300,
+);
+const canonicalUrl = canonical ? absoluteUrl(canonical, siteUrl) : absoluteUrl(Astro.url.pathname, siteUrl);
+const ogImage = image
+  ? absoluteUrl(image, siteUrl)
+  : settings.ogImage
+    ? absoluteUrl(settings.ogImage, siteUrl)
+    : '';
+const robots = noindex ? 'noindex, nofollow' : settings.robots || 'index, follow';
+const metaKeywords = clean(keywords || settings.metaKeywords, 300);
+
+const defaultOrgSchema = {
+  '@context': 'https://schema.org',
+  '@type': 'NewsMediaOrganization',
+  name: settings.siteName,
+  url: siteUrl,
+  logo: settings.siteLogo || undefined,
+};
+
+/* JSON-LD organization: aman terhadap nilai kosong / JSON tidak valid */
+let orgSchema: Record<string, unknown> = defaultOrgSchema;
+const schemaRaw = (settings.schemaOrganization ?? '').trim();
+if (schemaRaw) {
+  try {
+    const parsed = JSON.parse(schemaRaw);
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+      orgSchema = parsed as Record<string, unknown>;
+    }
+  } catch {
+    orgSchema = defaultOrgSchema;
+  }
+}
+
+const schemas: Record<string, unknown>[] = [orgSchema];
+if (schema) schemas.push(schema);
+---
+
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>{pageTitle}</title>
+<meta name="description" content={metaDescription} />
+{metaKeywords && <meta name="keywords" content={metaKeywords} />}
+<meta name="robots" content={robots} />
+<link rel="canonical" href={canonicalUrl} />
+{settings.favicon && <link rel="icon" href={settings.favicon} />}
+
+<meta property="og:site_name" content={settings.siteName} />
+<meta property="og:type" content={type} />
+<meta property="og:title" content={title || settings.siteName} />
+<meta property="og:description" content={metaDescription} />
+<meta property="og:url" content={canonicalUrl} />
+{ogImage && <meta property="og:image" content={ogImage} />}
+{publishedTime && <meta property="article:published_time" content={new Date(publishedTime).toISOString()} />}
+{modifiedTime && <meta property="article:modified_time" content={new Date(modifiedTime).toISOString()} />}
+
+<meta name="twitter:card" content={ogImage ? 'summary_large_image' : 'summary'} />
+<meta name="twitter:title" content={title || settings.siteName} />
+<meta name="twitter:description" content={metaDescription} />
+{ogImage && <meta name="twitter:image" content={ogImage} />}
+{settings.twitterSite && <meta name="twitter:site" content={settings.twitterSite} />}
+
+{settings.googleSiteVerification && (
+  <meta name="google-site-verification" content={settings.googleSiteVerification} />
+)}
+
+{
+  schemas.map((s) => (
+    <script type="application/ld+json" set:html={JSON.stringify(s)} />
+  ))
+}

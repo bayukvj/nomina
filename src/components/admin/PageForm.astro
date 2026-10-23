@@ -1,0 +1,100 @@
+---
+import Field from './Field.astro';
+import MediaPicker from './MediaPicker.astro';
+import RichEditor from './RichEditor.astro';
+
+interface Props {
+  page?: any;
+  mediaOptions?: { id: number; url: string; filename: string }[];
+  error?: string;
+  csrfToken?: string;
+}
+
+const { page = null, mediaOptions = [], error = '', csrfToken = '' } = Astro.props;
+
+const toLocalInput = (value: Date | string | null | undefined) => {
+  if (!value) return '';
+  const d = typeof value === 'string' ? new Date(value) : value;
+  if (Number.isNaN(d.getTime())) return '';
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+};
+
+ const action = page ? `/admin/pages/${page.id}` : '/admin/pages/new';
+ ---
+
+<input type="hidden" name="_csrf" value={csrfToken} />
+
+{
+  error && (
+    <div class="mb-5 rounded-lg border border-brand-200 bg-brand-50 px-4 py-3 text-sm font-medium text-brand-700">
+      {error}
+    </div>
+  )
+}
+
+<form method="post" action={action} class="grid gap-6 lg:grid-cols-3">
+  <div class="space-y-5 lg:col-span-2">
+    <section class="rounded-xl border border-ink-200 bg-surface p-5">
+      <h2 class="mb-4 text-base font-black text-ink-900">Konten Halaman</h2>
+      <div class="space-y-5">
+        <Field name="title" label="Judul" required value={page?.title ?? ''} />
+        <Field name="slug" label="Slug URL" value={page?.slug ?? ''} help="Contoh: tentang-kami" />
+        <RichEditor
+          name="content"
+          value={page?.content ?? ''}
+          height={420}
+          placeholder="Tulis isi halaman di sini…"
+          help="Editor klasik: bold, heading, daftar, tautan, kutipan, tabel, dan sisipkan gambar dari pustaka media."
+        />
+      </div>
+    </section>
+
+    <section class="rounded-xl border border-ink-200 bg-surface p-5">
+      <h2 class="mb-4 text-base font-black text-ink-900">SEO</h2>
+      <div class="space-y-5">
+        <Field name="metaTitle" label="Meta Title" value={page?.metaTitle ?? ''} />
+        <Field name="metaDescription" label="Meta Description" type="textarea" rows={2} value={page?.metaDescription ?? ''} />
+        <Field name="metaKeywords" label="Meta Keywords" value={page?.metaKeywords ?? ''} />
+      </div>
+    </section>
+  </div>
+
+  <div class="space-y-5">
+    <section class="rounded-xl border border-ink-200 bg-surface p-5">
+      <h2 class="mb-4 text-base font-black text-ink-900">Publikasi</h2>
+      <div class="space-y-5">
+        <Field
+          name="status"
+          label="Status"
+          type="select"
+          value={page?.status ?? 'published'}
+          options={[
+            { value: 'published', label: 'Published' },
+            { value: 'draft', label: 'Draft' },
+            { value: 'archived', label: 'Archived' },
+          ]}
+        />
+        <Field name="publishedAt" label="Tanggal Publikasi" type="date" value={toLocalInput(page?.publishedAt)} />
+
+        <MediaPicker
+          name="coverMediaId"
+          label="Gambar Sampul"
+          value={page?.coverMediaId ?? ''}
+          media={mediaOptions}
+          help="Gambar utama halaman (opsional)."
+        />
+        <Field name="showInMenu" label="Tampilkan di Menu" type="switch" value={page?.showInMenu ?? false} help="Muncul di navigasi utama" />
+      </div>
+    </section>
+
+    <div class="sticky bottom-4 flex gap-2 rounded-xl border border-ink-200 bg-surface p-4 shadow-lg">
+      <button type="submit" class="flex-1 rounded-lg bg-brand-400 px-4 py-2.5 text-sm font-bold text-brand-ink hover:bg-brand-300">
+        {page ? 'Perbarui' : 'Simpan Halaman'}
+      </button>
+      <a href="/admin/pages" class="rounded-lg border border-ink-200 px-4 py-2.5 text-sm font-semibold text-ink-700 hover:border-brand-500">
+        Batal
+      </a>
+    </div>
+  </div>
+</form>

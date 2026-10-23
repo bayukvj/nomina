@@ -1,0 +1,170 @@
+---
+import PublicLayout from '../layouts/PublicLayout.astro';
+import { MEMBER_COOKIE, updateMemberProfile } from '../lib/member-auth';
+import { formatDate } from '../lib/utils';
+import { validateCsrfForm, ensureCsrfCookie, getCsrfSecret } from '../lib/csrf';
+
+const member = Astro.locals.member;
+
+if (!member) {
+  return Astro.redirect('/masuk');
+}
+
+const csrfToken = ensureCsrfCookie(Astro.cookies, getCsrfSecret());
+
+let error = '';
+let success = '';
+
+if (Astro.request.method === 'POST') {
+  const secret = getCsrfSecret();
+  const formData = await validateCsrfForm(Astro.cookies, Astro.request, secret).catch(() => null);
+
+  if (!formData) {
+    error = 'Permintaan tidak valid (CSRF).';
+  } else {
+    const name = String(formData.get('name') ?? '').trim();
+    const phone = String(formData.get('phone') ?? '').trim();
+
+    if (name.length < 2) {
+      error = 'Nama minimal 2 karakter.';
+    } else {
+      await updateMemberProfile(member.id, {
+        name: name.slice(0, 80),
+        phone: phone || undefined,
+      });
+      success = 'Profil berhasil diperbarui.';
+    }
+  }
+}
+
+const msg = Astro.url.searchParams.get('msg');
+---
+
+<PublicLayout title="Akun Saya" noindex>
+  <section class="relative overflow-hidden bg-rainbow-soft">
+    <div class="blob blob-brand -top-24 -left-16 h-72 w-72 opacity-35"></div>
+    <div class="blob blob-grape -right-10 -bottom-20 h-72 w-72 opacity-35"></div>
+
+    <div class="container-site relative z-10 py-12">
+      <div class="mb-8 flex flex-wrap items-center gap-4">
+        <span class="flex h-16 w-16 items-center justify-center overflow-hidden rounded-2xl bg-brand-400 text-2xl font-black text-brand-ink shadow-pop">
+          {member.avatar ? (
+            <img src={member.avatar} alt={member.name} class="h-full w-full object-cover" />
+          ) : (
+            member.name.charAt(0)
+          )}
+        </span>
+        <div>
+          <h1 class="font-display text-3xl font-extrabold tracking-tight text-ink-900">
+            Halo, {member.name} 👋
+          </h1>
+          <p class="mt-1 text-sm text-ink-500">
+            Member sejak {formatDate(member.createdAt, 'short')} • {member.email}
+          </p>
+        </div>
+        <form method="post" action="/api/member/logout" class="ml-auto">
+          <button
+            type="submit"
+            class="rounded-full border border-ink-200 bg-surface px-4 py-2 text-xs font-bold text-ink-700 transition hover:border-brand-400 hover:text-brand-700"
+          >
+            Keluar
+          </button>
+        </form>
+      </div>
+
+      {
+        (error || success || msg) && (
+          <div
+            class={`mb-6 rounded-2xl border px-4 py-3 text-sm font-semibold ${
+              error
+                ? 'border-night-900 bg-night-900 text-brand-300'
+                : 'border-ink-200 bg-surface text-ink-700'
+            }`}
+          >
+            {error || success || (msg ? 'Selamat bergabung dengan Nomina!' : '')}
+          </div>
+        )
+      }
+
+      <div class="grid gap-6 lg:grid-cols-2">
+        <form method="post" class="rounded-3xl border border-ink-100 bg-surface p-6 shadow-soft">
+          <input type="hidden" name="_csrf" value={csrfToken} />
+          <h2 class="mb-5 text-lg font-extrabold text-ink-900">Profil Saya</h2>
+          <div class="space-y-4">
+            <label class="block">
+              <span class="mb-1.5 block text-xs font-bold text-ink-600">Nama Lengkap</span>
+              <input
+                type="text"
+                name="name"
+                value={member.name}
+                required
+                class="w-full rounded-2xl border border-ink-200 bg-ink-50 px-4 py-3 text-sm text-ink-800 outline-none transition focus:border-brand-400 focus:bg-surface focus:ring-4 focus:ring-brand-100"
+              />
+            </label>
+            <label class="block">
+              <span class="mb-1.5 block text-xs font-bold text-ink-600">Nomor HP</span>
+              <input
+                type="text"
+                name="phone"
+                value={member.phone ?? ''}
+                placeholder="08xx-xxxx-xxxx"
+                class="w-full rounded-2xl border border-ink-200 bg-ink-50 px-4 py-3 text-sm text-ink-800 outline-none transition focus:border-brand-400 focus:bg-surface focus:ring-4 focus:ring-brand-100"
+              />
+            </label>
+          </div>
+          <button
+            type="submit"
+            class="mt-5 rounded-full bg-brand-400 px-6 py-3 text-sm font-extrabold text-brand-ink transition hover:opacity-90"
+          >
+            Simpan Profil
+          </button>
+        </form>
+
+        <div class="h-fit rounded-3xl border border-ink-100 bg-surface p-6 shadow-soft">
+          <h2 class="mb-5 text-lg font-extrabold text-ink-900">Akun Google</h2>
+
+          <div class="flex items-center gap-3 rounded-2xl border border-ink-200 bg-ink-50 p-4">
+            <span class="flex h-10 w-10 items-center justify-center rounded-xl bg-white shadow-soft">
+              <svg viewBox="0 0 24 24" class="h-5 w-5" aria-hidden="true">
+                <path
+                  fill="#4285F4"
+                  d="M23.49 12.27c0-.79-.07-1.54-.19-2.27H12v4.51h6.47a5.4 5.4 0 0 1-2.4 3.58v2.77h3.86c2.26-2.09 3.56-5.17 3.56-8.59z"
+                />
+                <path
+                  fill="#34A853"
+                  d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.86-2.77c-1.08.72-2.45 1.16-4.07 1.16-3.13 0-5.78-2.11-6.73-4.96H1.28v3.09A12 12 0 0 0 12 24z"
+                />
+                <path
+                  fill="#FBBC05"
+                  d="M5.27 14.52A7.2 7.2 0 0 1 4.85 12c0-.88.15-1.73.42-2.52V6.39H1.28A12 12 0 0 0 0 12c0 1.94.47 3.77 1.28 5.39l3.99-2.87z"
+                />
+                <path
+                  fill="#EA4335"
+                  d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.7 0 3.99 2.47 1.28 6.39l3.99 2.61C6.22 6.86 8.87 4.75 12 4.75z"
+                />
+              </svg>
+            </span>
+            <div class="min-w-0">
+              <p class="truncate text-sm font-bold text-ink-900">{member.email}</p>
+              <p class="text-xs text-ink-500">
+                {member.googleId ? 'Terhubung dengan Google' : 'Akun lokal (migrasi)'}
+              </p>
+            </div>
+          </div>
+
+          <p class="mt-4 text-sm leading-relaxed text-ink-500">
+            Akun ini dikelola oleh Google Account. Kamu masuk dengan memilih akun Google
+            dan tidak perlu mengingat kata sandi.
+          </p>
+
+          <a
+            href="/api/member/google"
+            class="mt-5 inline-flex items-center gap-2 rounded-full border border-ink-200 bg-surface px-5 py-2.5 text-sm font-bold text-ink-700 transition hover:border-brand-400 hover:text-brand-700"
+          >
+            Ganti Akun Google
+          </a>
+        </div>
+      </div>
+    </div>
+  </section>
+</PublicLayout>

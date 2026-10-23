@@ -1,0 +1,126 @@
+---
+import '../styles/global.css';
+import Seo from '../components/Seo.astro';
+import Header from '../components/Header.astro';
+import Footer from '../components/Footer.astro';
+import { getSettings } from '../lib/settings';
+import { buildThemeCss } from '../lib/theme';
+import { buildFontCss, getPreloadFont } from '../lib/fonts';
+
+interface Props {
+  title?: string;
+  description?: string;
+  image?: string;
+  canonical?: string;
+  type?: 'website' | 'article';
+  publishedTime?: Date | string | null;
+  modifiedTime?: Date | string | null;
+  keywords?: string;
+  noindex?: boolean;
+  schema?: Record<string, unknown> | null;
+  fullWidth?: boolean;
+}
+
+const settings = await getSettings();
+const props = Astro.props;
+const themeCss = buildThemeCss(settings.themeColor);
+const fontCss = buildFontCss(settings.fontFamily, settings.fontHeading, settings.fontSize);
+const preloadFont = getPreloadFont(settings.fontFamily);
+---
+
+<!doctype html>
+<html lang="id">
+  <head>
+    <Seo {...props} />
+    <style is:global set:html={themeCss}></style>
+    <script is:inline>
+      (function () {
+        try {
+          var t = localStorage.getItem('nomina-theme') || 'system';
+          var dark =
+            t === 'dark' ||
+            (t === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+          document.documentElement.classList.toggle('dark', dark);
+          document.documentElement.style.colorScheme = dark ? 'dark' : 'light';
+        } catch (e) {}
+      })();
+    </script>
+    {preloadFont && <link rel="preload" href={preloadFont} as="font" type="font/woff2" crossorigin />}
+    <link rel="stylesheet" href="/fonts/fonts.css" />
+    <style is:global set:html={fontCss}></style>
+    {settings.googleAnalyticsId && (
+      <script
+        is:inline
+        async
+        src={`https://www.googletagmanager.com/gtag/js?id=${settings.googleAnalyticsId}`}
+      />
+    )}
+    {settings.googleAnalyticsId && (
+      <script
+        is:inline
+        define:vars={{ gaId: settings.googleAnalyticsId }}
+      >
+        window.dataLayer = window.dataLayer || [];
+        function gtag() {
+          dataLayer.push(arguments);
+        }
+        gtag('js', new Date());
+        gtag('config', gaId);
+      </script>
+    )}
+    {settings.googleTagManagerId && (
+      <script
+        is:inline
+        define:vars={{ gtmId: settings.googleTagManagerId }}
+      >
+        (function (w, d, s, l, i) {
+          (w[l] = w[l] || []);
+          w[l].push({ 'gtm.start': new Date().getTime(), event: 'gtm.js' });
+          var f = d.getElementsByTagName(s)[0],
+            j = d.createElement(s),
+            dl = l != 'dataLayer' ? '&l=' + l : '';
+          j.async = true;
+          j.src = 'https://www.googletagmanager.com/gtm.js?id=' + i + dl;
+          f.parentNode.insertBefore(j, f);
+        })(window, document, 'script', 'dataLayer', gtmId);
+      </script>
+    )}
+    {
+      settings.adsenseAutoAds === 'true' && settings.adsenseClientId && (
+        <script
+          is:inline
+          async
+          src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${settings.adsenseClientId}`}
+          crossorigin="anonymous"
+        />
+      )
+    }
+    {
+      settings.customCss?.trim() && settings.customCssPosition === 'head' && (
+        <style is:global set:html={settings.customCss} />
+      )
+    }
+    {
+      settings.customJs?.trim() && settings.customJsPosition === 'head' && (
+        <script is:inline set:html={settings.customJs} />
+      )
+    }
+  </head>
+  <body class="flex min-h-screen flex-col bg-surface">
+    <Header />
+    <main class="flex-1">
+      <slot />
+    </main>
+    <Footer />
+    {
+      settings.customCss?.trim() && settings.customCssPosition !== 'head' && (
+        <style is:global set:html={settings.customCss} />
+      )
+    }
+    {
+      settings.customJs?.trim() && settings.customJsPosition !== 'head' && (
+        <script is:inline set:html={settings.customJs} />
+      )
+    }
+  </body>
+</html>

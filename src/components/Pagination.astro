@@ -1,0 +1,65 @@
+---
+interface Props {
+  page: number;
+  totalPages: number;
+  baseUrl: string;
+  extraParams?: Record<string, string>;
+}
+
+const { page, totalPages, baseUrl, extraParams = {} } = Astro.props;
+
+const build = (p: number) => {
+  const params = new URLSearchParams({ ...extraParams, page: String(p) });
+  return `${baseUrl}?${params.toString()}`;
+};
+
+const pages: number[] = [];
+const span = 2;
+for (let i = 1; i <= totalPages; i++) {
+  if (i === 1 || i === totalPages || Math.abs(i - page) <= span) pages.push(i);
+}
+---
+
+{
+  totalPages > 1 && (
+    <nav class="mt-12 flex items-center justify-center gap-2" aria-label="Paginasi">
+      <a
+        href={build(Math.max(1, page - 1))}
+        class={`flex h-10 w-10 items-center justify-center rounded-full border text-sm font-bold transition ${
+          page === 1
+            ? 'pointer-events-none border-ink-200 text-ink-400'
+            : 'border-ink-200 bg-surface text-ink-700 hover:border-brand-400 hover:text-brand-700'
+        }`}
+      >
+        ‹
+      </a>
+
+      {pages.map((p, idx) => (
+        <>
+          {idx > 0 && pages[idx - 1] !== p - 1 && <span class="px-1 text-ink-400">…</span>}
+          <a
+            href={build(p)}
+            class={`flex h-10 w-10 items-center justify-center rounded-full border text-sm font-bold transition ${
+              p === page
+                ? 'border-transparent bg-brand-400 text-brand-ink shadow-pop'
+                : 'border-ink-200 bg-surface text-ink-700 hover:border-brand-400 hover:text-brand-700'
+            }`}
+          >
+            {p}
+          </a>
+        </>
+      ))}
+
+      <a
+        href={build(Math.min(totalPages, page + 1))}
+        class={`flex h-10 w-10 items-center justify-center rounded-full border text-sm font-bold transition ${
+          page === totalPages
+            ? 'pointer-events-none border-ink-200 text-ink-400'
+            : 'border-ink-200 bg-surface text-ink-700 hover:border-brand-400 hover:text-brand-700'
+        }`}
+      >
+        ›
+      </a>
+    </nav>
+  )
+}

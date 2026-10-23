@@ -1,0 +1,401 @@
+---
+import { getSettings } from '../lib/settings';
+import { getComments, getRelatedPosts } from '../lib/content';
+import { postUrl, categoryUrl, tagUrl, authorUrl } from '../lib/permalink';
+import { formatDate, formatDateTime, readingTime, timeAgo } from '../lib/utils';
+import { renderContent } from '../lib/content-render';
+import { getAdForPlacement, renderAdHtml, injectAdInContent, recordAdImpression } from '../lib/ads';
+import { resolveThumbnail, isDirectImage, youtubeId, toEmbedUrl, isDirectVideoFile } from '../lib/video';
+import { buildSrcset } from '../lib/images';
+import Breadcrumb from './Breadcrumb.astro';
+import PostCard from './PostCard.astro';
+import Sidebar from './Sidebar.astro';
+import CommentForm from './CommentForm.astro';
+import Ads from './Ads.astro';
+
+interface Props {
+  entry: any;
+}
+
+const { entry } = Astro.props;
+const { post, category, categories: postCategories, author, cover } = entry;
+
+const settings = await getSettings();
+const url = postUrl(
+  {
+    slug: post.slug,
+    id: post.id,
+    title: post.title,
+    categorySlug: category?.slug,
+    categoryName: category?.name,
+    publishedAt: post.publishedAt,
+    createdAt: post.createdAt,
+  },
+  settings,
+);
+
+const html = await renderContent(post.content, post.format);
+const primaryCategoryId = postCategories?.length
+  ? postCategories[0].id
+  : category?.id ?? null;
+const related = primaryCategoryId ? await getRelatedPosts(post.id, primaryCategoryId, 4) : [];
+const comments = settings.commentEnabled === 'true' ? await getComments(post.id, 'approved') : [];
+
+/* iklan di tengah isi artikel (setelah paragraf ke-3) */
+const inArticleAd = await getAdForPlacement('in_article', primaryCategoryId);
+if (inArticleAd) {
+  recordAdImpression(inArticleAd.id).catch(() => {});
+}
+const inArticleHtml = inArticleAd
+  ? renderAdHtml(
+      inArticleAd,
+      inArticleAd.label?.trim() || settings.adsLabel?.trim() || 'Iklan',
+    )
+  : '';
+const contentHtml = inArticleHtml
+  ? injectAdInContent(html, `<div class="my-8">${inArticleHtml}</div>`)
+  : html;
+
+/* thumbnail: cover pilihan editor > turunan dari video */
+const derivedThumb = resolveThumbnail(cover?.url, post.videoUrl);
+const isEmbed = Boolean(youtubeId(post.videoUrl)) || (post.videoUrl ?? '').includes('/embed/');
+const heroImage = cover?.url ?? (isEmbed ? null : derivedThumb);
+const heroSrcset = cover?.url ? buildSrcset(cover.sizes) : undefined;
+const heroW = cover?.width ?? undefined;
+const heroH = cover?.height ?? undefined;
+
+const breadcrumbs = [
+  { label: 'Beranda', href: '/' },
+  ...((postCategories?.length ? postCategories : category ? [category] : []).map((c: any) => ({
+    label: c.name,
+    href: categoryUrl(c.slug, settings),
+  }))),
+  { label: post.title },
+];
+
+/* Resolve URL video: watch?v=... -> /embed/..., dan berkas video lokal -> <video> */
+const embedUrl = toEmbedUrl(post.videoUrl);
+const isDirectVideo = isDirectVideoFile(post.videoUrl);
+
+const articleSchema = {
+  '@context': 'https://schema.org',
+  '@type': post.type === 'video' ? 'VideoObject' : 'NewsArticle',
+  headline: post.title,
+  description: post.excerpt ?? '',
+  image: cover?.url ? [cover.url] : undefined,
+  datePublished: post.publishedAt ? new Date(post.publishedAt).toISOString() : undefined,
+  dateModified: post.updatedAt ? new Date(post.updatedAt).toISOString() : undefined,
+  author: { '@type': 'Person', name: author?.name ?? settings.siteName },
+  publisher: { '@type': 'Organization', name: settings.siteName },
+  mainEntityOfPage: Astro.url.href,
+  ...(post.videoUrl ? { contentUrl: post.videoUrl, embedUrl } : {}),
+};
+
+const shareUrl = Astro.url.href;
+const shareText = encodeURIComponent(post.title);
+
+const shareButtons = [
+  { label: 'Facebook', href: `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`, bg: 'bg-[#1877F2]' },
+  { label: 'X', href: `https://twitter.com/intent/tweet?url=${encodeURIComponent(shareUrl)}&text=${shareText}`, bg: 'bg-night-900' },
+  { label: 'WhatsApp', href: `https://wa.me/?text=${shareText}%20${encodeURIComponent(shareUrl)}`, bg: 'bg-[#25D366]' },
+  { label: 'LinkedIn', href: `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shareUrl)}`, bg: 'bg-[#0A66C2]' },
+  { label: 'Telegram', href: `https://t.me/share/url?url=${encodeURIComponent(shareUrl)}&text=${shareText}`, bg: 'bg-[#229ED9]' },
+];
+---
+
+<Breadcrumb items={breadcrumbs} />
+
+<article class="container-site grid gap-10 pb-12 lg:grid-cols-[1fr_320px]">
+  <div class="min-w-0">
+    <header class="card-modern relative overflow-hidden p-6 sm:p-8">
+      <div class="blob blob-brand -top-20 -right-16 h-56 w-56 opacity-25"></div>
+      <div class="blob blob-grape -bottom-24 -left-16 h-56 w-56 opacity-20"></div>
+
+      <div class="relative z-10">
+        <div class="flex flex-wrap items-center gap-2">
+          {
+            (postCategories?.length ? postCategories : category ? [category] : []).map((cat: any) => (
+              <a
+                href={categoryUrl(cat.slug, settings)}
+                class="chip bg-brand-100 text-brand-700 transition hover:bg-brand-400 hover:text-brand-ink"
+              >
+                {cat.name}
+              </a>
+            ))
+          }
+          {post.type === 'video' && <span class="chip bg-night-900 text-brand-300">Video</span>}
+          {post.type === 'photo' && <span class="chip bg-night-900 text-brand-300">Foto</span>}
+        </div>
+
+        <h1 class="mt-4 font-display text-3xl font-extrabold leading-[1.15] tracking-tight text-ink-900 sm:text-4xl lg:text-[2.75rem]">
+          {post.title}
+        </h1>
+
+        {post.excerpt && <p class="mt-4 text-lg leading-relaxed text-ink-600">{post.excerpt}</p>}
+
+        <div class="mt-6 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-ink-100 pt-5 text-sm text-ink-500">
+          {
+            author && (
+              <a
+                href={authorUrl(author.email, settings)}
+                class="flex items-center gap-2 font-bold text-ink-800 transition hover:text-brand-700"
+              >
+                <span class="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full bg-brand-400 text-sm font-bold text-brand-ink">
+                   {author.avatar ? (
+                     <img src={author.avatar} alt={author.name} width={36} height={36} loading="lazy" decoding="async" class="h-full w-full object-cover" />
+                   ) : (
+                    author.name.charAt(0)
+                  )}
+                </span>
+                {author.name}
+              </a>
+            )
+          }
+          <time datetime={new Date(post.publishedAt ?? post.createdAt).toISOString()}>
+            {formatDateTime(post.publishedAt ?? post.createdAt, settings.timeFormat !== '12')}
+          </time>
+          {settings.showReadingTime === 'true' && (
+            <span class="chip bg-ink-100 text-ink-600">{readingTime(post.content)} menit baca</span>
+          )}
+          <span class="chip bg-ink-100 text-ink-600">{post.views} dibaca</span>
+        </div>
+      </div>
+    </header>
+
+    {
+      heroImage && (
+        <figure class="mt-8 overflow-hidden rounded-3xl shadow-soft">
+          <img
+            src={heroImage}
+            srcset={heroSrcset}
+            sizes="(min-width: 1024px) 760px, 100vw"
+            width={heroW}
+            height={heroH}
+            alt={post.coverAlt || post.title}
+             class="w-full"
+             loading="eager"
+             fetchpriority="high"
+             decoding="async"
+          />
+          {(post.coverCaption || cover?.caption) && (
+            <figcaption class="bg-ink-50 px-5 py-3 text-center text-xs leading-relaxed text-ink-500">
+              {post.coverCaption || cover?.caption}
+            </figcaption>
+          )}
+        </figure>
+      )
+    }
+
+    {
+      post.type === 'video' && post.videoUrl && (
+        isDirectVideo ? (
+          <div class="mt-8 overflow-hidden rounded-3xl bg-night-900 shadow-soft">
+            <video
+              controls
+              preload="metadata"
+              playsinline
+              class="aspect-video w-full"
+            >
+              <source src={post.videoUrl} />
+              Browser Anda tidak mendukung pemutaran video.
+            </video>
+          </div>
+        ) : (
+          <div class="mt-8 aspect-video overflow-hidden rounded-3xl bg-night-900 shadow-soft">
+            <iframe
+              src={embedUrl}
+              title={post.title}
+              class="h-full w-full"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
+              allowfullscreen
+              referrerpolicy="strict-origin-when-cross-origin"
+              loading="lazy"
+            />
+          </div>
+        )
+      )
+    }
+
+    <div class="prose-media mt-8" set:html={contentHtml} />
+
+    {
+      post.tags && post.tags.length > 0 && (
+        <div class="mt-10 flex flex-wrap items-center gap-2 border-t border-ink-200 pt-6">
+          <span class="text-xs font-extrabold uppercase tracking-wider text-ink-500">Tag:</span>
+          {post.tags.map((tag: any) => (
+            <a
+              href={tagUrl(tag.slug, settings)}
+              class="chip bg-ink-100 text-ink-800 transition hover:bg-night-900 hover:text-brand-300"
+            >
+              #{tag.name}
+            </a>
+          ))}
+        </div>
+      )
+    }
+
+    {
+      settings.showShareButtons === 'true' && (
+        <div class="mt-6 flex flex-wrap items-center gap-2">
+          <span class="text-xs font-extrabold uppercase tracking-wider text-ink-500">Bagikan:</span>
+          {shareButtons.map((s) => (
+            <a
+              href={s.href}
+              target="_blank"
+              rel="noopener"
+              class={`rounded-full ${s.bg} px-4 py-2 text-xs font-bold text-white shadow-soft transition hover:-translate-y-0.5 hover:opacity-90`}
+            >
+              {s.label}
+            </a>
+          ))}
+          <button
+            type="button"
+            data-copy-link={shareUrl}
+            class="inline-flex items-center gap-1.5 rounded-full bg-night-900 px-4 py-2 text-xs font-bold text-white shadow-soft transition hover:-translate-y-0.5 hover:bg-brand-400 hover:text-brand-ink"
+            aria-label="Salin tautan artikel"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-3.5 w-3.5">
+              <rect x="9" y="9" width="11" height="11" rx="2"></rect>
+              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+            </svg>
+            <span data-copy-label>Salin Tautan</span>
+          </button>
+        </div>
+      )
+    }
+
+    {
+      settings.showAuthorBox === 'true' && author && (
+        <div class="relative mt-8 overflow-hidden rounded-3xl bg-rainbow-soft p-6">
+          <div class="blob blob-grape -top-10 -right-8 h-40 w-40 opacity-30"></div>
+          <div class="relative z-10 flex gap-4">
+            <span class="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-brand-400 text-2xl font-black text-brand-ink shadow-pop">
+               {author.avatar ? (
+                 <img src={author.avatar} alt={author.name} width={64} height={64} loading="lazy" decoding="async" class="h-full w-full object-cover" />
+               ) : (
+                author.name.charAt(0)
+              )}
+            </span>
+            <div>
+              <p class="text-xs font-extrabold uppercase tracking-wider text-brand-600">
+                Ditulis oleh
+              </p>
+              <p class="font-display text-lg font-extrabold text-ink-900">{author.name}</p>
+              {author.bio && <p class="mt-1 text-sm text-ink-600">{author.bio}</p>}
+            </div>
+          </div>
+        </div>
+      )
+    }
+
+    <Ads placement="after_content" categoryId={category?.id ?? null} class="mt-8" />
+
+    {
+      related.length > 0 && settings.showRelatedPosts === 'true' && (
+        <section class="mt-14">
+          <h2 class="title-underline mb-6 inline-flex items-center gap-2 pb-2 text-lg font-extrabold uppercase tracking-wide text-ink-900">
+            <span class="h-2 w-2 rounded-full bg-brand-400" /> Post Terkait
+          </h2>
+          <div class="grid gap-6 sm:grid-cols-2">
+            {related.map((r: any) => (
+              <PostCard post={r.post} />
+            ))}
+          </div>
+        </section>
+      )
+    }
+
+    {
+      settings.commentEnabled === 'true' && (
+        <section class="mt-14" id="komentar">
+          <h2 class="title-underline mb-6 inline-flex items-center gap-2 pb-2 text-lg font-extrabold uppercase tracking-wide text-ink-900">
+            <span class="h-2 w-2 rounded-full bg-night-900" /> Komentar ({comments.length})
+          </h2>
+
+          {comments.length === 0 ? (
+            <div class="rounded-3xl border border-dashed border-ink-300 bg-surface p-8 text-center text-ink-500">
+              Belum ada komentar. Jadilah yang pertama memberikan pendapat.
+            </div>
+          ) : (
+            <ul class="space-y-4">
+              {comments.map((c: any) => (
+                <li class="rounded-3xl border border-ink-100 bg-surface p-5 shadow-soft">
+                  <div class="flex items-center gap-3">
+                    <span class="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-brand-400 to-brand-500 text-sm font-bold text-brand-ink">
+                      {c.name.charAt(0)}
+                    </span>
+                    <div>
+                      <p class="text-sm font-bold text-ink-900">{c.name}</p>
+                      <p class="text-xs text-ink-500">{timeAgo(c.createdAt)}</p>
+                    </div>
+                  </div>
+                  <p class="mt-3 whitespace-pre-line text-sm leading-relaxed text-ink-700">
+                    {c.body}
+                  </p>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          <CommentForm postId={post.id} requireModeration={settings.commentRequireModeration === 'true'} />
+        </section>
+      )
+    }
+  </div>
+
+  <Sidebar excludePostId={post.id} />
+</article>
+
+<script is:inline>
+  (function () {
+    if (window.__nominaCopyLink) return;
+    window.__nominaCopyLink = true;
+
+    async function copyText(text) {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(text);
+        return true;
+      }
+      /* fallback untuk browser/konteks non-secure */
+      const area = document.createElement('textarea');
+      area.value = text;
+      area.setAttribute('readonly', '');
+      area.style.position = 'fixed';
+      area.style.opacity = '0';
+      document.body.appendChild(area);
+      area.select();
+      const ok = document.execCommand('copy');
+      document.body.removeChild(area);
+      return ok;
+    }
+
+    document.addEventListener('click', async function (e) {
+      const btn = e.target.closest('[data-copy-link]');
+      if (!btn) return;
+
+      const url = btn.getAttribute('data-copy-link');
+      const label = btn.querySelector('[data-copy-label]');
+      const original = label ? label.textContent : '';
+
+      try {
+        const ok = await copyText(url);
+        if (!ok) throw new Error('gagal');
+        if (label) {
+          label.textContent = 'Tersalin!';
+          btn.classList.add('bg-mint-500', 'text-ink-900');
+        }
+        setTimeout(function () {
+          if (label) label.textContent = original;
+          btn.classList.remove('bg-mint-500', 'text-ink-900');
+        }, 2000);
+      } catch (err) {
+        if (label) {
+          label.textContent = 'Gagal menyalin';
+          setTimeout(function () {
+            label.textContent = original;
+          }, 2000);
+        }
+      }
+    });
+  })();
+</script>

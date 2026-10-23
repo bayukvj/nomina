@@ -1,0 +1,42 @@
+---
+import { getAdForPlacement, recordAdImpression, renderAdHtml, type AdPlacement } from '../lib/ads';
+import { getSettings } from '../lib/settings';
+
+interface Props {
+  placement: AdPlacement;
+  categoryId?: number | null;
+  class?: string;
+  showLabel?: boolean;
+  format?: 'block' | 'fluid';
+}
+
+const {
+  placement,
+  categoryId = null,
+  class: className = '',
+  showLabel = true,
+  format = 'block',
+} = Astro.props;
+
+const settings = await getSettings();
+const ad = await getAdForPlacement(placement, categoryId);
+
+if (ad) {
+  /* void: impression dicatat di sisi server (fire & forget) */
+  recordAdImpression(ad.id).catch(() => {});
+}
+
+const label = ad?.label?.trim() || settings.adsLabel?.trim() || 'Iklan';
+const html = ad ? renderAdHtml(ad, showLabel ? label : '') : '';
+const wrapperClass =
+  format === 'fluid'
+    ? 'w-full overflow-hidden rounded-2xl border border-ink-100 bg-surface'
+    : 'overflow-hidden rounded-2xl border border-ink-100 bg-surface';
+---
+
+{
+  html && (
+    <div class={`${wrapperClass} ${className}`} set:html={html} />
+  )
+}
+

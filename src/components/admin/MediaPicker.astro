@@ -1,0 +1,342 @@
+---
+interface MediaItem {
+  id: number;
+  url: string;
+  filename: string;
+  mimeType?: string;
+  size?: number;
+}
+
+interface Props {
+  name: string;
+  label: string;
+  value?: number | null | string;
+  media: MediaItem[];
+  help?: string;
+  /** 'id' menyimpan id media (default), 'url' menyimpan URL gambar */
+  mode?: 'id' | 'url';
+}
+
+const { name, label, value, media, help = '', mode = 'id' } = Astro.props;
+
+const images = media.filter((m) => !m.mimeType || m.mimeType.startsWith('image/'));
+const selected =
+  mode === 'url'
+    ? images.find((m) => m.url === String(value ?? ''))
+    : images.find((m) => m.id === Number(value));
+const selectedId = selected?.id ?? 0;
+---
+
+<div class="space-y-2" data-media-picker data-mode={mode}>
+  <span class="block text-sm font-semibold text-ink-800">{label}</span>
+
+  <div class="flex items-start gap-3">
+    <div
+      class="grid h-24 w-32 shrink-0 place-items-center overflow-hidden rounded-xl border border-ink-200 bg-ink-50"
+      data-preview
+    >
+      {
+        selected ? (
+          <img src={selected.url} alt="" class="h-full w-full object-cover" data-preview-img />
+        ) : (
+          <span class="px-2 text-center text-[11px] leading-tight text-ink-400" data-preview-empty>
+            Belum ada gambar
+          </span>
+        )
+      }
+    </div>
+
+    <div class="min-w-0 flex-1 space-y-2">
+      <input type="hidden" name={name} value={mode === 'url' ? (selected?.url ?? '') : (selectedId || '')} data-value />
+
+      <p class="truncate text-xs text-ink-500" data-filename>
+        {selected ? selected.filename : '— belum dipilih —'}
+      </p>
+
+      {
+        mode === 'url' && (
+          <>
+            <input
+              type="text"
+              data-url-input
+              value={selected?.url ?? ''}
+              placeholder="https://… atau /uploads/…"
+              class="w-full rounded-lg border border-ink-200 bg-ink-50 px-3 py-2 text-sm outline-none transition focus:border-brand-400 focus:bg-surface focus:ring-4 focus:ring-brand-100"
+            />
+            <p class="truncate text-[11px] text-ink-400" data-url>
+              {selected?.url ?? ''}
+            </p>
+          </>
+        )
+      }
+      <div class="flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          data-open
+          class="inline-flex items-center gap-1.5 rounded-lg border border-ink-200 bg-surface px-3 py-1.5 text-xs font-bold text-ink-700 transition hover:border-brand-400 hover:text-brand-700"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-3.5 w-3.5">
+            <path d="M3 5h18v14H3z"></path>
+            <circle cx="8.5" cy="9.5" r="1.5"></circle>
+            <path d="m21 15-5-5L5 19"></path>
+          </svg>
+          Pustaka Media
+        </button>
+
+        <label
+          class="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-ink-200 bg-surface px-3 py-1.5 text-xs font-bold text-ink-700 transition hover:border-brand-400 hover:text-brand-700"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-3.5 w-3.5">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <path d="M17 8l-5-5-5 5"></path>
+            <path d="M12 3v12"></path>
+          </svg>
+          Unggah dari Komputer
+          <input type="file" accept="image/*" class="hidden" data-upload />
+        </label>
+
+        <button
+          type="button"
+          data-clear
+          class="rounded-lg px-2 py-1.5 text-xs font-semibold text-ink-500 transition hover:text-brand-600"
+        >
+          Hapus
+        </button>
+
+        <span class="text-xs text-ink-500" data-upload-status></span>
+      </div>
+    </div>
+  </div>
+
+  {help && <p class="text-xs text-ink-500">{help}</p>}
+
+  <dialog
+    data-dialog
+    class="m-auto max-h-[90vh] w-[min(92vw,760px)] rounded-3xl border border-ink-200 bg-surface p-0 shadow-pop backdrop:bg-ink-900/60"
+  >
+    <div class="p-5">
+      <div class="mb-4 flex items-center justify-between gap-3">
+        <h3 class="text-base font-extrabold text-ink-900">Pustaka Media</h3>
+        <button
+          type="button"
+          data-close
+          class="rounded-full border border-ink-200 px-3 py-1.5 text-xs font-bold text-ink-600 transition hover:border-brand-400"
+        >
+          Tutup
+        </button>
+      </div>
+
+      <input
+        type="search"
+        data-filter
+        placeholder="Cari nama berkas…"
+        class="mb-4 w-full rounded-xl border border-ink-200 bg-ink-50 px-4 py-2.5 text-sm outline-none focus:border-brand-400 focus:bg-surface focus:ring-4 focus:ring-brand-100"
+      />
+
+      {
+        images.length === 0 ? (
+          <p class="rounded-xl border border-dashed border-ink-300 p-10 text-center text-sm text-ink-500">
+            Pustaka masih kosong. Gunakan tombol “Unggah dari Komputer”.
+          </p>
+        ) : (
+          <div class="grid max-h-[52vh] grid-cols-3 gap-3 overflow-y-auto sm:grid-cols-4" data-grid>
+            {images.map((m) => (
+              <button
+                type="button"
+                data-item
+                data-id={m.id}
+                data-src={m.url}
+                data-name={m.filename}
+                class={`group relative aspect-square overflow-hidden rounded-xl border-2 transition hover:border-brand-400 ${
+                  m.id === selectedId ? 'border-brand-500' : 'border-transparent'
+                }`}
+              >
+                <img src={m.url} alt={m.filename} loading="lazy" class="h-full w-full object-cover" />
+                <span class="absolute inset-x-0 bottom-0 truncate bg-night-900/70 px-2 py-1 text-[10px] text-white opacity-0 transition group-hover:opacity-100">
+                  {m.filename}
+                </span>
+              </button>
+            ))}
+          </div>
+        )
+      }
+    </div>
+  </dialog>
+</div>
+
+<script is:inline>
+  (function () {
+    if (window.__nominaMediaPicker) return;
+    window.__nominaMediaPicker = true;
+
+    const root = (el) => el.closest('[data-media-picker]');
+
+    const setSelection = (picker, id, url, name) => {
+      const input = picker.querySelector('[data-value]');
+      const label = picker.querySelector('[data-filename]');
+      const preview = picker.querySelector('[data-preview]');
+      const mode = picker.getAttribute('data-mode') || 'id';
+
+      if (input) input.value = mode === 'url' ? (url || '') : id ? String(id) : '';
+      if (label) label.textContent = name || '— belum dipilih —';
+
+      const urlLabel = picker.querySelector('[data-url]');
+      if (urlLabel) urlLabel.textContent = url || '';
+
+      const urlInput = picker.querySelector('[data-url-input]');
+      if (urlInput) urlInput.value = url || '';
+
+      if (preview) {
+        let img = preview.querySelector('[data-preview-img]');
+        let empty = preview.querySelector('[data-preview-empty]');
+        if (url) {
+          if (!img) {
+            img = document.createElement('img');
+            img.setAttribute('data-preview-img', '');
+            img.className = 'h-full w-full object-cover';
+            preview.appendChild(img);
+          }
+          img.src = url;
+          img.alt = name || '';
+          empty?.remove();
+        } else {
+          img?.remove();
+          if (!empty) {
+            empty = document.createElement('span');
+            empty.setAttribute('data-preview-empty', '');
+            empty.className = 'px-2 text-center text-[11px] leading-tight text-ink-400';
+            empty.textContent = 'Belum ada gambar';
+            preview.appendChild(empty);
+          }
+        }
+      }
+    };
+
+    document.addEventListener('input', function (e) {
+      const urlInput = e.target.closest('[data-url-input]');
+      if (!urlInput) return;
+      const wrap = urlInput.closest('[data-media-picker]');
+      const hidden = wrap && wrap.querySelector('[data-value]');
+      const urlLabel = wrap && wrap.querySelector('[data-url]');
+      if (hidden) hidden.value = urlInput.value.trim();
+      if (urlLabel) urlLabel.textContent = urlInput.value.trim();
+    });
+
+    document.addEventListener('click', function (e) {
+      const openBtn = e.target.closest('[data-open]');
+      if (openBtn) {
+        const picker = root(openBtn);
+        const dialog = picker?.querySelector('[data-dialog]');
+        if (dialog && typeof dialog.showModal === 'function') {
+          dialog.showModal();
+        } else if (dialog) {
+          dialog.setAttribute('open', '');
+        }
+        return;
+      }
+
+      const closeBtn = e.target.closest('[data-close]');
+      if (closeBtn) {
+        const dialog = root(closeBtn)?.querySelector('[data-dialog]');
+        if (dialog?.close) dialog.close();
+        else dialog?.removeAttribute('open');
+        return;
+      }
+
+      const item = e.target.closest('[data-item]');
+      if (item) {
+        const picker = root(item);
+        setSelection(
+          picker,
+          item.getAttribute('data-id'),
+          item.getAttribute('data-src'),
+          item.getAttribute('data-name'),
+        );
+        picker?.querySelectorAll('[data-item]').forEach((el) => {
+          el.classList.toggle('border-brand-500', el === item);
+          el.classList.toggle('border-transparent', el !== item);
+        });
+        const dialog = picker?.querySelector('[data-dialog]');
+        if (dialog?.close) dialog.close();
+        else dialog?.removeAttribute('open');
+        return;
+      }
+
+      const clearBtn = e.target.closest('[data-clear]');
+      if (clearBtn) {
+        const picker = root(clearBtn);
+        setSelection(picker, '', '', null);
+        picker?.querySelectorAll('[data-item]').forEach((el) => {
+          el.classList.remove('border-brand-500');
+          el.classList.add('border-transparent');
+        });
+      }
+    });
+
+    document.addEventListener('change', function (e) {
+      const fileInput = e.target.closest('[data-upload]');
+      if (!fileInput || !fileInput.files || !fileInput.files[0]) return;
+
+      const picker = root(fileInput);
+      const status = picker?.querySelector('[data-upload-status]');
+      const file = fileInput.files[0];
+
+      if (status) status.textContent = 'Mengunggah…';
+
+      const fd = new FormData();
+      fd.append('file', file);
+      fd.append('alt', file.name);
+
+      fetch('/api/admin/media', { method: 'POST', credentials: 'include', body: fd })
+        .then(async (res) => {
+          const contentType = res.headers.get('content-type') || '';
+          let data;
+          if (contentType.includes('application/json')) {
+            data = await res.json();
+          } else {
+            data = await res.text();
+          }
+          return { ok: res.ok, data };
+        })
+        .then(({ ok, data }) => {
+          if (!ok) throw new Error(typeof data === 'string' ? data : 'Gagal mengunggah.');
+          if (status) status.textContent = '';
+
+          const grid = picker?.querySelector('[data-grid]');
+          if (grid) {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.setAttribute('data-item', '');
+            btn.setAttribute('data-id', String(data.id));
+            btn.setAttribute('data-src', data.url);
+            btn.setAttribute('data-name', file.name);
+            btn.className =
+              'group relative aspect-square overflow-hidden rounded-xl border-2 border-brand-500 transition hover:border-brand-400';
+            btn.innerHTML =
+              '<div class="aspect-square overflow-hidden bg-ink-100">' +
+              '<img src="' + data.url + '" alt="" class="h-full w-full object-cover" />' +
+              '</div>' +
+              '<div class="p-2"><p class="truncate text-[10px] font-semibold text-ink-800">' + file.name + '</p></div>';
+            grid.prepend(btn);
+          }
+
+          setSelection(picker, data.id, data.url, file.name);
+          fileInput.value = '';
+        })
+        .catch((err) => {
+          if (status) status.textContent = 'Gagal: ' + (err.message || err);
+        });
+    });
+
+    document.addEventListener('input', function (e) {
+      const filter = e.target.closest('[data-filter]');
+      if (!filter) return;
+      const picker = root(filter);
+      const term = filter.value.toLowerCase();
+      picker?.querySelectorAll('[data-item]').forEach((el) => {
+        const name = (el.getAttribute('data-name') || '').toLowerCase();
+        el.style.display = !term || name.includes(term) ? '' : 'none';
+      });
+    });
+  })();
+</script>

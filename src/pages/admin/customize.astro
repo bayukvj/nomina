@@ -1,0 +1,206 @@
+---
+import AdminLayout from '../../layouts/AdminLayout.astro';
+import { getSettings, saveSettings, invalidateSettingsCache } from '../../lib/settings';
+import { validateCsrfForm, ensureCsrfCookie, getCsrfSecret } from '../../lib/csrf';
+
+const settings = await getSettings();
+const csrfToken = ensureCsrfCookie(Astro.cookies, getCsrfSecret());
+let message = '';
+
+if (Astro.request.method === 'POST') {
+  const form = await validateCsrfForm(Astro.cookies, Astro.request, getCsrfSecret()).catch(() => null);
+  if (!form) {
+    return new Response('Forbidden', { status: 403 });
+  }
+  const action = String(form.get('_action') ?? 'save');
+
+  if (action === 'reset') {
+    await saveSettings(
+      {
+        customCss: '',
+        customJs: '',
+        customCssPosition: 'footer',
+        customJsPosition: 'footer',
+        customAdminCss: '',
+        customAdminJs: '',
+      },
+      'custom',
+    );
+    invalidateSettingsCache();
+    return Astro.redirect('/admin/customize?msg=Kode+custom+dikosongkan');
+  }
+
+  const values: Record<string, string> = {
+    customCss: String(form.get('customCss') ?? ''),
+    customJs: String(form.get('customJs') ?? ''),
+    customCssPosition: String(form.get('customCssPosition') ?? 'footer'),
+    customJsPosition: String(form.get('customJsPosition') ?? 'footer'),
+    customAdminCss: String(form.get('customAdminCss') ?? ''),
+    customAdminJs: String(form.get('customAdminJs') ?? ''),
+  };
+
+  await saveSettings(values, 'custom');
+  invalidateSettingsCache();
+  return Astro.redirect('/admin/customize?msg=Kode+custom+berhasil+disimpan');
+}
+
+const msg = Astro.url.searchParams.get('msg');
+const examples = {
+  css: `/* Contoh: ubah warna tautan & beri efek pada judul */
+.prose-media h2 {
+  position: relative;
+  padding-left: 14px;
+}
+.prose-media h2::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0.25em;
+  bottom: 0.25em;
+  width: 4px;
+  border-radius: 9999px;
+  background: #facc15;
+}`,
+  js: `/* Contoh: sentuh kecil pada tombol */
+document.querySelectorAll('a[href^="#"]').forEach((el) => {
+  el.addEventListener('click', () => {
+    el.classList.add('ring-2', 'ring-brand-400');
+  });
+});`,
+};
+---
+
+<AdminLayout title="Kode Custom" active="customize" wide>
+  {
+    msg && (
+      <div class="mb-5 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700">
+        {msg}
+      </div>
+    )
+  }
+
+  <div class="mb-5 rounded-xl border border-ink-200 bg-surface p-5">
+    <h2 class="text-base font-extrabold text-ink-900">CSS &amp; JavaScript Kustom</h2>
+    <p class="mt-1 text-sm leading-relaxed text-ink-600">
+      Tambahkan gaya dan skrip sendiri tanpa menyentuh file proyek. Kode disisipkan otomatis ke
+      setiap halaman — gunakan untuk merapikan tampilan, memasang widget chat, analitik, atau
+      animasi tambahan. Jangan lupa menyimpan setelah mengubah.
+    </p>
+    <p class="mt-2 rounded-lg border border-ink-200 bg-ink-50 px-3 py-2 text-xs text-ink-600">
+      <strong>Catatan:</strong> kode dieksekusi apa adanya. Hindari kode yang mengganggu
+      pengguna atau mencuri data, dan gunakan hanya pada domain Anda sendiri.
+    </p>
+  </div>
+
+  <form method="post" class="grid gap-5 xl:grid-cols-2">
+    <input type="hidden" name="_csrf" value={csrfToken} />
+    <section class="rounded-xl border border-ink-200 bg-surface p-5">
+      <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
+        <h3 class="text-base font-extrabold text-ink-900">Custom CSS — Situs Publik</h3>
+        <select
+          name="customCssPosition"
+          class="rounded-lg border border-ink-200 bg-surface px-3 py-1.5 text-xs font-bold text-ink-700 outline-none focus:border-brand-400"
+        >
+          <option value="footer" selected={settings.customCssPosition !== 'head'}>
+            Akhir body
+          </option>
+          <option value="head" selected={settings.customCssPosition === 'head'}>
+            Dalam &lt;head&gt;
+          </option>
+        </select>
+      </div>
+      <textarea
+        name="customCss"
+        rows="16"
+        spellcheck="false"
+        placeholder={examples.css}
+        class="w-full rounded-2xl border border-ink-200 bg-ink-900 px-4 py-3 font-mono text-[13px] leading-relaxed text-ink-100 outline-none transition focus:border-brand-400 focus:ring-4 focus:ring-brand-100"
+      >
+        {settings.customCss}
+      </textarea>
+      <p class="mt-2 text-xs text-ink-500">
+        CSS disisipkan apa adanya. Penempatan di &lt;head&gt; lebih awal (cocok untuk override
+        foundational), di akhir body berlaku setelah halaman ter-render.
+      </p>
+    </section>
+
+    <section class="rounded-xl border border-ink-200 bg-surface p-5">
+      <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
+        <h3 class="text-base font-extrabold text-ink-900">Custom JS — Situs Publik</h3>
+        <select
+          name="customJsPosition"
+          class="rounded-lg border border-ink-200 bg-surface px-3 py-1.5 text-xs font-bold text-ink-700 outline-none focus:border-brand-400"
+        >
+          <option value="footer" selected={settings.customJsPosition !== 'head'}>
+            Akhir body
+          </option>
+          <option value="head" selected={settings.customJsPosition === 'head'}>
+            Dalam &lt;head&gt;
+          </option>
+        </select>
+      </div>
+      <textarea
+        name="customJs"
+        rows="16"
+        spellcheck="false"
+        placeholder={examples.js}
+        class="w-full rounded-2xl border border-ink-200 bg-ink-900 px-4 py-3 font-mono text-[13px] leading-relaxed text-ink-100 outline-none transition focus:border-brand-400 focus:ring-4 focus:ring-brand-100"
+      >
+        {settings.customJs}
+      </textarea>
+      <p class="mt-2 text-xs text-ink-500">
+        JavaScript dieksekusi di browser pembaca. Disarankan menaruhnya di akhir body.
+      </p>
+    </section>
+
+    <section class="rounded-xl border border-ink-200 bg-surface p-5">
+      <h3 class="mb-4 text-base font-extrabold text-ink-900">Custom CSS — Panel Admin</h3>
+      <textarea
+        name="customAdminCss"
+        rows="10"
+        spellcheck="false"
+        class="w-full rounded-2xl border border-ink-200 bg-ink-900 px-4 py-3 font-mono text-[13px] leading-relaxed text-ink-100 outline-none transition focus:border-brand-400 focus:ring-4 focus:ring-brand-100"
+      >
+        {settings.customAdminCss}
+      </textarea>
+      <p class="mt-2 text-xs text-ink-500">Hanya berlaku di halaman panel admin (/admin).</p>
+    </section>
+
+    <section class="rounded-xl border border-ink-200 bg-surface p-5">
+      <h3 class="mb-4 text-base font-extrabold text-ink-900">Custom JS — Panel Admin</h3>
+      <textarea
+        name="customAdminJs"
+        rows="10"
+        spellcheck="false"
+        class="w-full rounded-2xl border border-ink-200 bg-ink-900 px-4 py-3 font-mono text-[13px] leading-relaxed text-ink-100 outline-none transition focus:border-brand-400 focus:ring-4 focus:ring-brand-100"
+      >
+        {settings.customAdminJs}
+      </textarea>
+      <p class="mt-2 text-xs text-ink-500">Hanya berlaku di halaman panel admin (/admin).</p>
+    </section>
+
+    <div class="flex flex-wrap gap-2 xl:col-span-2">
+      <button
+        type="submit"
+        class="rounded-lg bg-brand-400 px-6 py-2.5 text-sm font-extrabold text-brand-ink transition hover:opacity-90"
+      >
+        Simpan Kode Custom
+      </button>
+      <button
+        type="submit"
+        name="_action"
+        value="reset"
+        data-confirm="Kosongkan semua kode custom?"
+        class="rounded-lg border border-ink-200 px-5 py-2.5 text-sm font-semibold text-ink-600 transition hover:border-coral-300 hover:text-coral-600"
+      >
+        Kosongkan Semua
+      </button>
+      <a
+        href="/admin/settings?group=custom"
+        class="rounded-lg border border-ink-200 px-5 py-2.5 text-sm font-semibold text-ink-700 transition hover:border-brand-400"
+      >
+        Buka di Pengaturan
+      </a>
+    </div>
+  </form>
+</AdminLayout>

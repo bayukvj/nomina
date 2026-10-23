@@ -1,0 +1,120 @@
+---
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+import Icon from '../../../components/admin/Icon.astro';
+import { getAllUsers } from '../../../lib/content';
+import { deleteUser } from '../../../lib/admin/save';
+import { roleLabel } from '../../../lib/auth';
+import { formatDate } from '../../../lib/utils';
+
+const users = await getAllUsers();
+const current = Astro.locals.user;
+
+const deleteId = Astro.url.searchParams.get('delete');
+if (deleteId) {
+  if (Number(deleteId) === current?.id) {
+    return Astro.redirect('/admin/users?msg=Anda+tidak+dapat+menghapus+akun+sendiri&type=error');
+  }
+  await deleteUser(Number(deleteId));
+  return Astro.redirect('/admin/users?msg=Pengguna+berhasil+dihapus');
+}
+const msg = Astro.url.searchParams.get('msg');
+const msgType = Astro.url.searchParams.get('type');
+---
+
+<AdminLayout title="Pengguna" active="users">
+  {
+    msg && (
+      <div
+        class={`mb-5 rounded-lg border px-4 py-3 text-sm font-medium ${
+          msgType === 'error'
+            ? 'border-brand-200 bg-brand-50 text-brand-700'
+            : 'border-emerald-200 bg-emerald-50 text-emerald-700'
+        }`}
+      >
+        {msg}
+      </div>
+    )
+  }
+
+  <div class="mb-5 flex items-center justify-between">
+    <p class="text-sm text-ink-500">{users.length} pengguna terdaftar</p>
+    <a
+      href="/admin/users/new"
+      class="inline-flex items-center gap-2 rounded-lg bg-brand-400 px-4 py-2.5 text-sm font-bold text-brand-ink hover:bg-brand-300"
+    >
+      <Icon name="plus" class="h-4 w-4" /> Tambah Pengguna
+    </a>
+  </div>
+
+  <div class="overflow-hidden rounded-xl border border-ink-200 bg-surface">
+    <table class="w-full text-sm">
+      <thead class="bg-ink-50 text-left text-xs uppercase tracking-wider text-ink-500">
+        <tr>
+          <th class="px-4 py-3">Pengguna</th>
+          <th class="px-4 py-3">Peran</th>
+          <th class="px-4 py-3">Status</th>
+          <th class="px-4 py-3">Terakhir masuk</th>
+          <th class="px-4 py-3 text-right">Aksi</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-ink-100">
+        {
+          users.map((u) => (
+            <tr class="hover:bg-ink-50/60">
+              <td class="px-4 py-3">
+                <div class="flex items-center gap-3">
+                  <span class="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full bg-brand-100 text-sm font-bold text-brand-700">
+                    {u.avatar ? (
+                      <img src={u.avatar} alt={u.name} class="h-full w-full object-cover" />
+                    ) : (
+                      u.name.charAt(0)
+                    )}
+                  </span>
+                  <div>
+                    <p class="font-semibold text-ink-900">
+                      {u.name} {u.id === current?.id && <span class="text-xs text-ink-400">(Anda)</span>}
+                    </p>
+                    <p class="text-xs text-ink-500">{u.email}</p>
+                  </div>
+                </div>
+              </td>
+              <td class="px-4 py-3">
+                <span class="rounded bg-ink-100 px-2 py-0.5 text-xs font-semibold text-ink-700">
+                  {roleLabel[u.role] ?? u.role}
+                </span>
+              </td>
+              <td class="px-4 py-3">
+                <span
+                  class={`rounded px-2 py-0.5 text-xs font-semibold ${
+                    u.active ? 'bg-emerald-50 text-emerald-700' : 'bg-ink-100 text-ink-500'
+                  }`}
+                >
+                  {u.active ? 'Aktif' : 'Nonaktif'}
+                </span>
+              </td>
+              <td class="px-4 py-3 text-ink-600">
+                {u.lastLoginAt ? formatDate(u.lastLoginAt, 'short') : 'Belum pernah'}
+              </td>
+              <td class="px-4 py-3">
+                <div class="flex justify-end gap-1">
+                  <a href={`/admin/users/${u.id}`} class="rounded p-1.5 text-ink-400 hover:text-brand-600">
+                    <Icon name="edit" class="h-4 w-4" />
+                  </a>
+                  {u.id !== current?.id && (
+                    <a
+                      href={`/admin/users?delete=${u.id}`}
+                      data-confirm="Hapus pengguna ini?"
+                      class="rounded p-1.5 text-ink-400 hover:text-brand-600"
+                    >
+                      <Icon name="trash" class="h-4 w-4" />
+                    </a>
+                  )}
+                </div>
+              </td>
+            </tr>
+          ))
+        }
+      </tbody>
+    </table>
+  </div>
+</AdminLayout>

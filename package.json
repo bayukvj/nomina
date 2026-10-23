@@ -1,0 +1,49 @@
+{
+  "name": "nomina",
+  "type": "module",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "astro dev",
+    "start": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "astro": "astro",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "tsx scripts/migrate.ts",
+    "db:push": "drizzle-kit push",
+    "db:seed": "tsx scripts/seed.ts",
+    "db:studio": "drizzle-kit studio",
+    "check:contrast": "tsx scripts/contrast-check.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "setup": "npm run db:migrate && npm run db:seed"
+  },
+  "dependencies": {
+    "@astrojs/node": "^9.4.3",
+    "@astrojs/rss": "^4.0.12",
+    "@lucide/astro": "^1.61.0",
+    "@tailwindcss/vite": "^4.1.13",
+    "astro": "^5.13.5",
+    "bcryptjs": "^3.0.2",
+    "drizzle-orm": "^0.44.5",
+    "marked": "^18.1.1",
+    "pg": "^8.16.3",
+    "sharp": "^0.34.3",
+    "tailwindcss": "^4.1.13",
+    "tinymce": "^8.10.0"
+  },
+  "devDependencies": {
+    "@astrojs/check": "^0.9.12",
+    "@types/bcryptjs": "^2.4.6",
+    "@types/node": "^24.5.2",
+    "@types/pg": "^8.15.5",
+    "@vitest/coverage-v8": "^5.0.5",
+    "drizzle-kit": "^0.31.4",
+    "happy-dom": "^21.0.4",
+    "tsx": "^4.20.5",
+    "typescript": "^5.9.2",
+    "vitest": "^5.0.5"
+  }
+}

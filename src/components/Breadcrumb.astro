@@ -1,0 +1,48 @@
+---
+interface Crumb {
+  label: string;
+  href?: string;
+}
+
+interface Props {
+  items: Crumb[];
+}
+
+const { items } = Astro.props;
+const schema = {
+  '@context': 'https://schema.org',
+  '@type': 'BreadcrumbList',
+  itemListElement: items.map((item, i) => ({
+    '@type': 'ListItem',
+    position: i + 1,
+    name: item.label,
+    ...(item.href ? { item: item.href } : {}),
+  })),
+};
+---
+
+<nav class="container-site py-4 text-xs text-ink-500" aria-label="Breadcrumb">
+  <ol class="flex flex-wrap items-center gap-1.5">
+    {
+      items.map((item, i) => (
+        <li class="flex items-center gap-1.5">
+          {item.href ? (
+            <a
+              href={item.href}
+              class="rounded-full px-2 py-1 font-semibold transition hover:bg-brand-50 hover:text-brand-700"
+            >
+              {item.label}
+            </a>
+          ) : (
+            <span class="rounded-full bg-ink-100 px-2 py-1 font-semibold text-ink-700">
+              {item.label}
+            </span>
+          )}
+          {i < items.length - 1 && <span class="text-ink-500">/</span>}
+        </li>
+      ))
+    }
+  </ol>
+</nav>
+
+<script type="application/ld+json" set:html={JSON.stringify(schema)} is:inline />

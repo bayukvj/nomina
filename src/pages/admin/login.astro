@@ -1,0 +1,177 @@
+---
+import '../../styles/global.css';
+import ThemeToggle from '../../components/ThemeToggle.astro';
+import { db } from '../../db';
+import { users } from '../../db/schema';
+import { eq, sql } from 'drizzle-orm';
+import {
+  SESSION_COOKIE,
+  createSession,
+  verifyPassword,
+} from '../../lib/auth';
+import { getSettings } from '../../lib/settings';
+import { buildThemeCss } from '../../lib/theme';
+import { buildFontCss, buildFontLink } from '../../lib/fonts';
+import { validateCsrfForm, ensureCsrfCookie, getCsrfSecret } from '../../lib/csrf';
+import { rateLimit, rateLimitKey } from '../../lib/rate-limit';
+
+const settings = await getSettings();
+const themeCss = buildThemeCss(settings.themeColor);
+const fontCss = buildFontCss(settings.fontFamily, settings.fontHeading, settings.fontSize);
+const fontLink = buildFontLink(settings.fontFamily, settings.fontHeading);
+const csrfToken = ensureCsrfCookie(Astro.cookies, getCsrfSecret());
+let error = '';
+
+if (Astro.request.method === 'POST') {
+  const secret = getCsrfSecret();
+  const form = await validateCsrfForm(Astro.cookies, Astro.request, secret).catch(() => null);
+
+  if (!form) {
+    error = 'Permintaan tidak valid (CSRF).';
+  } else {
+    const clientIp = Astro.clientAddress ?? 'unknown';
+    const rl = rateLimit(rateLimitKey({ ip: clientIp }, 'login'), {
+      windowMs: 60_000,
+      max: 5,
+    });
+    if (!rl.allowed) {
+      error = 'Terlalu banyak percobaan masuk. Coba lagi nanti.';
+    } else {
+      const email = String(form.get('email') ?? '').trim().toLowerCase();
+      const password = String(form.get('password') ?? '');
+      const next = String(form.get('next') ?? '/admin');
+
+      const rows = await db
+        .select()
+        .from(users)
+        .where(sql`lower(${users.email}) = ${email}`)
+        .limit(1);
+
+      const user = rows[0];
+
+      if (!user || !(await verifyPassword(password, user.passwordHash))) {
+        error = 'Email atau kata sandi salah.';
+      } else if (!user.active) {
+        error = 'Akun ini dinonaktifkan. Hubungi administrator.';
+      } else {
+        const { token, expiresAt } = await createSession(
+          user.id,
+          Astro.request.headers.get('user-agent') ?? undefined,
+          Astro.clientAddress,
+        );
+        await db.update(users).set({ lastLoginAt: new Date() }).where(eq(users.id, user.id));
+        Astro.cookies.set(SESSION_COOKIE, token, {
+          path: '/',
+          httpOnly: true,
+          sameSite: 'lax',
+          secure: import.meta.env.PROD,
+          expires: expiresAt,
+        });
+        return Astro.redirect(next.startsWith('/admin') ? next : '/admin');
+      }
+    }
+  }
+}
+
+const next = Astro.url.searchParams.get('next') ?? '/admin';
+---
+
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>Masuk — Admin {settings.siteName}</title>
+    <link rel="icon" href={settings.favicon || '/favicon.svg'} />
+    <style is:global set:html={themeCss}></style>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    {fontLink && <link href={fontLink} rel="stylesheet" />}
+    <style is:global set:html={fontCss}></style>
+    <script is:inline>
+      (function () {
+        try {
+          var t = localStorage.getItem('nomina-theme') || 'system';
+          var dark =
+            t === 'dark' ||
+            (t === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+          document.documentElement.classList.toggle('dark', dark);
+          document.documentElement.style.colorScheme = dark ? 'dark' : 'light';
+        } catch (e) {}
+      })();
+    </script>
+  </head>
+  <body class="relative flex min-h-screen items-center justify-center overflow-hidden bg-night-900 px-4">
+    <div class="blob blob-brand -top-20 -left-16 h-96 w-96 opacity-40 animate-float"></div>
+    <div class="blob blob-grape top-1/4 right-0 h-80 w-80 opacity-35 animate-float-slow"></div>
+    <div class="blob blob-mint -bottom-24 left-1/3 h-80 w-80 opacity-30"></div>
+    <div class="blob blob-coral top-10 left-1/2 h-56 w-56 opacity-25"></div>
+
+    <div class="relative z-10 w-full max-w-sm">
+      <div class="mb-4 flex justify-end">
+        <ThemeToggle />
+      </div>
+
+      <div class="mb-8 text-center">
+        <span class="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-3xl bg-brand-400 text-3xl font-black text-brand-ink shadow-pop">
+          {settings.siteName.charAt(0)}
+        </span>
+        <h1 class="font-display text-3xl font-extrabold text-white">Panel Redaksi</h1>
+        <p class="mt-2 text-sm text-ink-400">
+          Masuk untuk mengelola konten {settings.siteName}
+        </p>
+      </div>
+
+      <form method="post" class="space-y-4 rounded-3xl border border-ink-200 bg-surface p-7 shadow-pop backdrop-blur-xl">
+        <input type="hidden" name="next" value={next} />
+        <input type="hidden" name="_csrf" value={csrfToken} />
+
+        {
+          error && (
+            <div class="rounded-2xl border border-ink-900 bg-night-900 px-4 py-3 text-sm font-semibold text-brand-300">
+              {error}
+            </div>
+          )
+        }
+
+        <div>
+          <label for="email" class="mb-1.5 block text-sm font-bold text-ink-800">Email</label>
+          <input
+            id="email"
+            type="email"
+            name="email"
+            required
+            autocomplete="username"
+            placeholder="nama@redaksi.id"
+            class="w-full rounded-2xl border border-ink-200 bg-ink-50 px-4 py-3 text-sm text-ink-800 outline-none transition focus:border-brand-400 focus:bg-surface focus:ring-4 focus:ring-brand-100"
+          />
+        </div>
+
+        <div>
+          <label for="password" class="mb-1.5 block text-sm font-bold text-ink-800">Kata Sandi</label>
+          <input
+            id="password"
+            type="password"
+            name="password"
+            required
+            autocomplete="current-password"
+            placeholder="••••••••"
+            class="w-full rounded-2xl border border-ink-200 bg-ink-50 px-4 py-3 text-sm text-ink-800 outline-none transition focus:border-brand-400 focus:bg-surface focus:ring-4 focus:ring-brand-100"
+          />
+        </div>
+
+        <button
+          type="submit"
+          class="w-full rounded-2xl bg-brand-400 py-3 text-sm font-extrabold text-brand-ink shadow-pop transition hover:-translate-y-0.5 hover:opacity-90"
+        >
+          Masuk →
+        </button>
+      </form>
+
+      <p class="mt-6 text-center text-xs text-ink-500">
+        <a href="/" class="font-semibold transition hover:text-white">← Kembali ke situs</a>
+      </p>
+    </div>
+  </body>
+</html>

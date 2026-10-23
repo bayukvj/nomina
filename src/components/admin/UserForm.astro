@@ -1,0 +1,69 @@
+﻿---
+import Field from './Field.astro';
+import MediaPicker from './MediaPicker.astro';
+
+interface Props {
+  user?: any;
+  error?: string;
+  isNew?: boolean;
+  media?: { id: number; url: string; filename: string; mimeType?: string }[];
+  csrfToken?: string;
+}
+
+const { user = null, error = '', isNew = false, media = [], csrfToken = '' } = Astro.props;
+const action = user ? `/admin/users/${user.id}` : '/admin/users/new';
+---
+
+{
+  error && (
+    <div class="mb-5 rounded-lg border border-brand-200 bg-brand-50 px-4 py-3 text-sm font-medium text-brand-700">
+      {error}
+    </div>
+  )
+}
+
+<form method="post" action={action} class="max-w-2xl space-y-5 rounded-xl border border-ink-200 bg-surface p-6">
+  <input type="hidden" name="_csrf" value={csrfToken} />
+  <Field name="name" label="Nama Lengkap" required value={user?.name ?? ''} />
+  <Field name="email" label="Email" type="email" required value={user?.email ?? ''} />
+  <Field
+    name="role"
+    label="Peran"
+    type="select"
+    value={user?.role ?? 'author'}
+    options={[
+      { value: 'admin', label: 'Administrator — akses penuh' },
+      { value: 'editor', label: 'Editor — kelola semua konten' },
+      { value: 'author', label: 'Penulis — kelola post sendiri' },
+    ]}
+  />
+  <Field
+    name="password"
+    label={isNew ? 'Kata Sandi' : 'Kata Sandi Baru'}
+    type="password"
+    required={isNew}
+    help={isNew ? '' : 'Biarkan kosong jika tidak ingin mengubah kata sandi.'}
+  />
+  <MediaPicker
+    name="avatar"
+    label="URL Avatar"
+    value={user?.avatar ?? ''}
+    media={media}
+    mode="url"
+    help="Pilih dari pustaka media, unggah gambar, atau tempel URL. Dikosongkan berarti memakai huruf awal nama."
+  />
+  <Field name="bio" label="Bio / Profil Singkat" type="textarea" rows={3} value={user?.bio ?? ''} />
+  {!isNew && <Field name="active" label="Akun Aktif" type="switch" value={user?.active ?? true} help="Nonaktifkan untuk menonaktifkan akses" />}
+
+  <div class="flex gap-2 pt-2">
+    <button type="submit" class="rounded-lg bg-brand-400 px-5 py-2.5 text-sm font-bold text-brand-ink hover:bg-brand-300">
+      {user ? 'Perbarui Pengguna' : 'Simpan Pengguna'}
+    </button>
+    <a
+      href="/admin/users"
+      class="rounded-lg border border-ink-200 px-5 py-2.5 text-sm font-semibold text-ink-700 hover:border-brand-500"
+    >
+      Batal
+    </a>
+  </div>
+</form>

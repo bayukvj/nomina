@@ -1,0 +1,49 @@
+---
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+import AdForm from '../../../components/admin/AdForm.astro';
+import { getAllMedia } from '../../../lib/content';
+import { getAdById, getAdCategories } from '../../../lib/ads';
+import { saveAd } from '../../../lib/admin/save';
+import { validateCsrfForm, ensureCsrfCookie, getCsrfSecret } from '../../../lib/csrf';
+
+const id = Number(Astro.params.id);
+const ad = await getAdById(id);
+
+if (!ad) {
+  return Astro.redirect('/admin/ads?msg=Iklan+tidak+ditemukan&type=error');
+}
+
+const csrfToken = ensureCsrfCookie(Astro.cookies, getCsrfSecret());
+let error = '';
+
+if (Astro.request.method === 'POST') {
+  const form = await validateCsrfForm(Astro.cookies, Astro.request, getCsrfSecret()).catch(() => null);
+  if (!form) {
+    error = 'Permintaan tidak valid (CSRF).';
+  } else {
+    const result = await saveAd(form, id);
+    if (result.error) {
+      error = result.error;
+    } else {
+      return Astro.redirect(`/admin/ads/${id}?msg=Iklan+berhasil+diperbarui`);
+    }
+  }
+}
+
+const [media, categories] = await Promise.all([getAllMedia(), getAdCategories()]);
+const mediaOptions = media
+  .filter((m) => m.mimeType?.startsWith('image/'))
+  .map((m: any) => ({ id: m.id, url: m.url, filename: m.originalName }));
+const msg = Astro.url.searchParams.get('msg');
+---
+
+<AdminLayout title="Edit Iklan" active="ads">
+  {
+    msg && (
+      <div class="mb-5 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700">
+        {msg}
+      </div>
+    )
+  }
+  <AdForm ad={ad} mediaOptions={mediaOptions} categories={categories} error={error} csrfToken={csrfToken} />
+</AdminLayout>

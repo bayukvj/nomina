@@ -1,0 +1,215 @@
+---
+import PublicLayout from '../layouts/PublicLayout.astro';
+import ArticleView from '../components/ArticleView.astro';
+import ArchiveView from '../components/ArchiveView.astro';
+import PageView from '../components/PageView.astro';
+import { getSettings } from '../lib/settings';
+import {
+  getPostBySlug,
+  getPageBySlug,
+  getCategoryBySlug,
+  getTagBySlug,
+  getPosts,
+  getAuthorBySlug,
+  incrementViews,
+} from '../lib/content';
+import { postUrl, categoryUrl, tagUrl, pageUrl, authorUrl } from '../lib/permalink';
+import { resolveThumbnail } from '../lib/video';
+import { toBool } from '../lib/settings';
+
+const settings = await getSettings();
+const raw = (Astro.params.path ?? '').replace(/^\/+|\/+$/g, '');
+const segments = raw.split('/').filter(Boolean);
+
+const page = Math.max(1, Number(Astro.url.searchParams.get('page') ?? 1) || 1);
+const perPage = Number(settings.postsPerPage) || 10;
+
+let kind: 'post' | 'page' | 'category' | 'tag' | 'author' | 'none' = 'none';
+let payload: any = null;
+let title = '';
+let subtitle = '';
+let breadcrumbs: { label: string; href?: string }[] = [];
+let seoDescription = '';
+let seoImage = '';
+let canonical = Astro.url.pathname;
+let noindex = false;
+let schema: Record<string, unknown> | null = null;
+
+/* Basis URL kosong = tanpa prefix (mis. /ekonomi) */
+const base = (settings.permalinkCategoryBase ?? '').trim();
+const tagBase = (settings.permalinkTagBase ?? '').trim();
+const pageBase = (settings.permalinkPageBase ?? '').trim();
+const authorBase = (settings.permalinkAuthorBase ?? '').trim();
+
+if (base && segments.length >= 2 && segments[0] === base) {
+  const category = await getCategoryBySlug(segments[1]);
+  if (category) {
+    kind = 'category';
+    title = category.name;
+    subtitle = category.description ?? '';
+    seoDescription = category.seoDescription ?? category.description ?? '';
+    canonical = categoryUrl(category.slug, settings);
+    schema = {
+      '@context': 'https://schema.org',
+      '@type': 'CollectionPage',
+      name: category.name,
+      description: seoDescription,
+    };
+    const result = await getPosts({
+      page,
+      perPage,
+      categorySlug: category.slug,
+      sort: 'terbaru',
+    });
+    payload = { posts: result.rows, totalPages: result.totalPages, total: result.total };
+  }
+} else if (tagBase && segments.length >= 2 && segments[0] === tagBase) {
+  const tag = await getTagBySlug(segments[1]);
+  if (tag) {
+    kind = 'tag';
+    title = `Tag: ${tag.name}`;
+    subtitle = `Kumpulan artikel terkait`;
+    canonical = tagUrl(tag.slug, settings);
+    const result = await getPosts({ page, perPage, tagSlug: tag.slug, sort: 'terbaru' });
+    payload = { posts: result.rows, totalPages: result.totalPages, total: result.total };
+  }
+} else if (pageBase && segments.length >= 2 && segments[0] === pageBase) {
+  const staticPage = await getPageBySlug(segments[1]);
+  if (staticPage) {
+    kind = 'page';
+    payload = staticPage;
+    title = staticPage.title;
+    seoDescription = staticPage.metaDescription ?? '';
+    canonical = pageUrl(staticPage.slug, settings);
+  }
+} else if (authorBase && segments.length >= 2 && segments[0] === authorBase) {
+  const author = await getAuthorBySlug(segments[1]);
+  if (author) {
+    kind = 'author';
+    title = author.name;
+    subtitle = author.bio ?? '';
+    canonical = authorUrl(author.email, settings);
+    const result = await getPosts({ page, perPage, authorId: author.id, sort: 'terbaru' });
+    payload = { posts: result.rows, totalPages: result.totalPages, total: result.total };
+  }
+} else {
+  const slug = segments[segments.length - 1] ?? '';
+  const entry = await getPostBySlug(slug);
+  if (entry) {
+    const computed = postUrl(
+      {
+        slug: entry.post.slug,
+        id: entry.post.id,
+        title: entry.post.title,
+        categorySlug: entry.category?.slug,
+        categoryName: entry.category?.name,
+        publishedAt: entry.post.publishedAt,
+        createdAt: entry.post.createdAt,
+      },
+      settings,
+    );
+    if (computed.replace(/\/$/, '') !== `/${raw}`) {
+      return Astro.redirect(computed, 301);
+    }
+    kind = 'post';
+    payload = entry;
+    title = entry.post.title;
+    seoDescription = entry.post.metaDescription ?? entry.post.excerpt ?? '';
+    seoImage = resolveThumbnail(entry.cover?.url, entry.post.videoUrl) ?? '';
+    canonical = computed;
+    schema = {
+      '@context': 'https://schema.org',
+      '@type': 'NewsArticle',
+      headline: entry.post.title,
+      datePublished: entry.post.publishedAt?.toISOString(),
+      dateModified: entry.post.updatedAt?.toISOString(),
+      author: { '@type': 'Person', name: entry.author?.name ?? settings.siteName },
+      image: entry.cover?.url ? [entry.cover.url] : undefined,
+    };
+    if (page === 1) await incrementViews(entry.post.id);
+  } else {
+    const staticPage = await getPageBySlug(slug);
+    if (staticPage) {
+      kind = 'page';
+      payload = staticPage;
+      title = staticPage.title;
+      seoDescription = staticPage.metaDescription ?? '';
+      canonical = pageUrl(staticPage.slug, settings);
+      /* URL lama (dengan prefix) -> redirect ke URL kanonis */
+      if (toBool(settings.redirectOldUrls) && canonical.replace(/\/$/, '') !== `/${raw}`) {
+        return Astro.redirect(canonical, 301);
+      }
+    } else {
+      const category = await getCategoryBySlug(slug);
+      if (category) {
+        kind = 'category';
+        title = category.name;
+        subtitle = category.description ?? '';
+        canonical = categoryUrl(category.slug, settings);
+        if (toBool(settings.redirectOldUrls) && canonical.replace(/\/$/, '') !== `/${raw}`) {
+          return Astro.redirect(canonical, 301);
+        }
+        const result = await getPosts({ page, perPage, categorySlug: category.slug, sort: 'terbaru' });
+        payload = { posts: result.rows, totalPages: result.totalPages, total: result.total };
+      } else {
+        const tag = await getTagBySlug(slug);
+        if (tag) {
+          kind = 'tag';
+          title = `Tag: ${tag.name}`;
+          canonical = tagUrl(tag.slug, settings);
+          if (toBool(settings.redirectOldUrls) && canonical.replace(/\/$/, '') !== `/${raw}`) {
+            return Astro.redirect(canonical, 301);
+          }
+          const result = await getPosts({ page, perPage, tagSlug: tag.slug, sort: 'terbaru' });
+          payload = { posts: result.rows, totalPages: result.totalPages, total: result.total };
+        }
+      }
+    }
+  }
+}
+
+if (kind === 'category' || kind === 'tag' || kind === 'author') {
+  const total = payload?.total ?? 0;
+  subtitle = `${total} artikel${subtitle ? ` — ${subtitle}` : ''}`;
+}
+
+if (kind === 'none') {
+  return Astro.rewrite('/404');
+}
+---
+
+<PublicLayout
+  title={title}
+  description={seoDescription}
+  image={seoImage}
+  canonical={canonical}
+  type={kind === 'post' ? 'article' : 'website'}
+  publishedTime={kind === 'post' ? payload?.post?.publishedAt : null}
+  modifiedTime={kind === 'post' ? payload?.post?.updatedAt : null}
+  keywords={kind === 'post' ? payload?.post?.metaKeywords : undefined}
+  noindex={noindex}
+  schema={schema}
+>
+  {
+    kind === 'post' && <ArticleView entry={payload} />
+  }
+
+  {
+    kind === 'page' && <PageView page={payload} />
+  }
+
+  {
+    (kind === 'category' || kind === 'tag' || kind === 'author') && (
+      <ArchiveView
+        title={title}
+        subtitle={subtitle}
+        posts={payload.posts}
+        page={page}
+        totalPages={payload.totalPages}
+        baseUrl={canonical}
+        breadcrumbs={breadcrumbs}
+        emptyMessage={kind === 'tag' ? 'Belum ada artikel dengan tag ini.' : 'Belum ada artikel pada bagian ini.'}
+      />
+    )
+  }
+</PublicLayout>

@@ -1,0 +1,497 @@
+---
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+import Icon from '../../../components/admin/Icon.astro';
+import { getAllMedia } from '../../../lib/content';
+import { formatBytes, formatDate } from '../../../lib/utils';
+import { getSettings } from '../../../lib/settings';
+
+const settings = await getSettings();
+const folder = Astro.url.searchParams.get('folder') ?? '';
+const q = Astro.url.searchParams.get('q') ?? '';
+
+let all = await getAllMedia(folder || undefined);
+if (q) {
+  const term = q.toLowerCase();
+  all = all.filter(
+    (m) =>
+      m.originalName.toLowerCase().includes(term) || m.alt?.toLowerCase().includes(term),
+  );
+}
+
+const folders = [...new Set((await getAllMedia()).map((m) => m.folder))];
+const totalSize = all.reduce((sum, m) => sum + (m.size ?? 0), 0);
+---
+
+<AdminLayout title="Media" active="media" wide>
+  <div class="mb-5 grid gap-4 lg:grid-cols-[1fr_360px]">
+    <div class="rounded-xl border border-ink-200 bg-surface p-5">
+      <h2 class="mb-3 text-base font-black text-ink-900">Unggah Media Baru</h2>
+      <form id="upload-form" class="space-y-3">
+        <label
+          class="flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-ink-300 bg-ink-50 px-4 py-8 text-center transition hover:border-brand-400 hover:bg-brand-50/40"
+        >
+          <Icon name="upload" class="mb-2 h-8 w-8 text-ink-400" />
+          <span class="text-sm font-semibold text-ink-700">Klik untuk pilih berkas</span>
+          <span class="mt-1 text-xs text-ink-500">
+            Maks {settings.uploadMaxSizeMb} MB — {settings.mediaAllowedTypes.split(',').join(', ')}
+          </span>
+          <input id="file" type="file" name="file" required class="hidden" />
+        </label>
+
+        <input
+          type="text"
+          name="alt"
+          placeholder="Teks alternatif (alt) gambar…"
+          class="w-full rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-brand-500"
+        />
+
+        <button
+          type="submit"
+          class="rounded-lg bg-brand-400 px-4 py-2.5 text-sm font-bold text-brand-ink hover:bg-brand-300"
+        >
+          Unggah
+        </button>
+        <p id="upload-status" class="text-sm"></p>
+        <div id="upload-preview" class="mt-2 hidden">
+          <p class="mb-2 text-xs font-semibold text-ink-600">Pratinjau Berkas</p>
+          <div class="relative inline-block overflow-hidden rounded-xl border border-ink-200 bg-ink-50">
+            <img id="upload-preview-img" src="" alt="" class="max-h-32 max-w-full object-cover" />
+            <button type="button" id="upload-preview-clear" class="absolute top-1 right-1 rounded-full bg-night-900/70 p-0.5 text-white opacity-0 transition hover:opacity-100">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-3 w-3"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+            </button>
+          </div>
+          <p id="upload-preview-name" class="mt-1 text-xs text-ink-500 break-all"></p>
+        </div>
+      </form>
+    </div>
+
+    <div class="rounded-xl border border-ink-200 bg-surface p-5">
+      <h2 class="mb-3 text-base font-black text-ink-900">Filter</h2>
+      <form method="get" class="space-y-3">
+        <input
+          type="search"
+          name="q"
+          value={q}
+          placeholder="Cari nama berkas…"
+          class="w-full rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-brand-500"
+        />
+        <select name="folder" class="w-full rounded-lg border border-ink-200 px-3 py-2 text-sm">
+          <option value="">Semua folder</option>
+          {folders.map((f) => <option value={f} selected={folder === f}>{f}</option>)}
+        </select>
+        <button type="submit" class="rounded-lg border border-ink-200 px-4 py-2 text-sm font-semibold text-ink-700 hover:border-brand-500">
+          Terapkan
+        </button>
+      </form>
+      <p class="mt-4 text-xs text-ink-500">
+        {all.length} berkas • total {formatBytes(totalSize)}
+      </p>
+    </div>
+  </div>
+
+  {
+    all.length === 0 ? (
+      <div class="rounded-xl border border-dashed border-ink-300 bg-surface p-16 text-center text-ink-500">
+        Belum ada media. Unggah berkas pertama Anda.
+      </div>
+    ) : (
+      <div class="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6" data-media-grid>
+        {all.map((m) => (
+          <div
+            class="group overflow-hidden rounded-xl border border-ink-200 bg-surface"
+            data-preview={JSON.stringify({
+              id: m.id,
+              url: m.url,
+              name: m.originalName,
+              alt: m.alt ?? '',
+              caption: m.caption ?? '',
+              size: m.size ?? 0,
+              width: m.width ?? 0,
+              height: m.height ?? 0,
+              mimeType: m.mimeType ?? '',
+              folder: m.folder,
+              createdAt: m.createdAt,
+            })}
+          >
+            <div class="aspect-square cursor-pointer overflow-hidden bg-ink-100" data-preview-trigger>
+              {m.mimeType?.startsWith('image/') ? (
+                <img src={m.url} alt={m.alt ?? m.originalName} width={m.width ?? 120} height={m.height ?? 120} loading="lazy" decoding="async" class="h-full w-full object-cover" />
+              ) : (
+                <div class="flex h-full w-full items-center justify-center text-2xl text-ink-400">
+                  🎬
+                </div>
+              )}
+            </div>
+            <div class="p-2.5">
+              <p class="truncate text-xs font-semibold text-ink-800" title={m.originalName}>
+                {m.originalName}
+              </p>
+              <p class="mt-0.5 text-[11px] text-ink-500">
+                {formatBytes(m.size)} {m.width ? `• ${m.width}×${m.height}` : ''}
+              </p>
+              <p class="text-[11px] text-ink-400">{formatDate(m.createdAt, 'short')}</p>
+              <div class="mt-2 flex gap-1">
+                <button
+                  type="button"
+                  class="flex-1 rounded border border-ink-200 px-1.5 py-1 text-[11px] font-semibold text-ink-600 hover:border-brand-400 hover:text-brand-700"
+                  data-copy={m.url}
+                >
+                  Salin URL
+                </button>
+                <button
+                  type="button"
+                  class="rounded border border-ink-200 px-1.5 py-1 text-[11px] font-semibold text-ink-600 hover:border-brand-400 hover:text-brand-700"
+                  data-edit={JSON.stringify({
+                    id: m.id,
+                    alt: m.alt ?? '',
+                    caption: m.caption ?? '',
+                    name: m.originalName,
+                  })}
+                  title="Keterangan gambar"
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-3.5 w-3.5">
+                    <path d="M12 20h9"></path>
+                    <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"></path>
+                  </svg>
+                </button>
+                <button
+                  type="button"
+                  class="rounded border border-ink-200 px-1.5 py-1 text-[11px] font-semibold text-brand-600 hover:border-brand-700"
+                  data-delete={m.id}
+                  title="Hapus"
+                >
+                  <Icon name="trash" class="h-3.5 w-3.5" />
+                </button>
+              </div>
+              {(m.caption || m.alt) && (
+                <p class="mt-1.5 line-clamp-2 text-[10px] leading-tight text-ink-500">
+                  {m.caption || m.alt}
+                </p>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+    )
+  }
+
+  <!-- dialog edit keterangan -->
+  <dialog id="media-info-dialog" class="m-auto max-h-[90vh] w-[min(92vw,520px)] rounded-3xl border border-ink-200 bg-surface p-0 shadow-pop backdrop:bg-ink-900/60">
+    <div class="p-6">
+      <div class="mb-4 flex items-center justify-between gap-3">
+        <h3 class="text-base font-extrabold text-ink-900">Keterangan Media</h3>
+        <button
+          type="button"
+          data-info-close
+          class="rounded-full border border-ink-200 px-3 py-1.5 text-xs font-bold text-ink-600 transition hover:border-brand-400"
+        >
+          Tutup
+        </button>
+      </div>
+
+      <p class="mb-4 truncate text-xs text-ink-500" id="media-info-name"></p>
+
+      <form id="media-info-form" class="space-y-4">
+        <label class="block">
+          <span class="mb-1.5 block text-xs font-bold text-ink-600">Caption / Keterangan</span>
+          <textarea
+            name="caption"
+            rows="3"
+            class="w-full rounded-2xl border border-ink-200 bg-ink-50 px-4 py-3 text-sm outline-none transition focus:border-brand-400 focus:bg-surface focus:ring-4 focus:ring-brand-100"
+            placeholder="Contoh: Suasana di Gedung DPR RI, Rabu (9/6/2026). Foto: Redaksi Nomina"
+          ></textarea>
+        </label>
+
+        <label class="block">
+          <span class="mb-1.5 block text-xs font-bold text-ink-600">Teks Alternatif (Alt)</span>
+          <input
+            type="text"
+            name="alt"
+            class="w-full rounded-2xl border border-ink-200 bg-ink-50 px-4 py-3 text-sm outline-none transition focus:border-brand-400 focus:bg-surface focus:ring-4 focus:ring-brand-100"
+            placeholder="Deskripsi singkat gambar untuk pembaca layar"
+          />
+        </label>
+
+        <p class="text-[11px] text-ink-500">
+          Caption dipakai sebagai keterangan di bawah gambar. Alt membantu pembaca layar &amp; SEO.
+        </p>
+
+        <div class="flex items-center gap-2 pt-1">
+          <button
+            type="submit"
+            class="rounded-full bg-brand-400 px-5 py-2.5 text-sm font-extrabold text-brand-ink transition hover:opacity-90"
+          >
+            Simpan Keterangan
+          </button>
+          <span id="media-info-status" class="text-xs text-ink-500"></span>
+        </div>
+      </form>
+    </div>
+  </dialog>
+
+  <dialog id="media-preview-dialog" class="m-auto max-h-[90vh] w-[min(92vw,880px)] rounded-3xl border border-ink-200 bg-surface p-0 shadow-pop backdrop:bg-ink-900/60">
+    <div class="p-0">
+      <div class="flex items-center justify-between border-b border-ink-200 p-5">
+        <h3 class="text-base font-extrabold text-ink-900">Detail Media</h3>
+        <button
+          type="button"
+          data-preview-close
+          class="rounded-full border border-ink-200 px-3 py-1.5 text-xs font-bold text-ink-600 transition hover:border-brand-400"
+        >
+          Tutup
+        </button>
+      </div>
+      <div class="grid gap-6 p-5 md:grid-cols-2">
+        <div id="media-preview-img" class="flex min-h-[200px] items-center justify-center overflow-hidden rounded-xl bg-ink-100">
+          <span class="text-2xl text-ink-400">📷</span>
+        </div>
+        <div class="space-y-3">
+          <div>
+            <label class="mb-1 block text-xs font-bold uppercase text-ink-500">Nama Berkas</label>
+            <p id="media-preview-name" class="text-sm font-semibold text-ink-800 break-all"></p>
+          </div>
+          <div>
+            <label class="mb-1 block text-xs font-bold uppercase text-ink-500">URL</label>
+            <div class="flex items-center gap-2">
+              <p id="media-preview-url" class="text-sm text-ink-600 break-all flex-1"></p>
+              <button type="button" data-preview-copy class="rounded border border-ink-200 px-2 py-1 text-[10px] font-semibold hover:border-brand-400">Salin</button>
+            </div>
+          </div>
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="mb-1 block text-xs font-bold uppercase text-ink-500">Dimensi</label>
+              <p id="media-preview-dimensions" class="text-sm text-ink-700">—</p>
+            </div>
+            <div>
+              <label class="mb-1 block text-xs font-bold uppercase text-ink-500">Ukuran</label>
+              <p id="media-preview-size" class="text-sm text-ink-700">—</p>
+            </div>
+          </div>
+          <div>
+            <label class="mb-1 block text-xs font-bold uppercase text-ink-500">Tipe MIME</label>
+            <p id="media-preview-mime" class="text-sm text-ink-700">—</p>
+          </div>
+          <div>
+            <label class="mb-1 block text-xs font-bold uppercase text-ink-500">Folder</label>
+            <p id="media-preview-folder" class="text-sm text-ink-700">—</p>
+          </div>
+          <div>
+            <label class="mb-1 block text-xs font-bold uppercase text-ink-500">Alt (SEO)</label>
+            <p id="media-preview-alt" class="text-sm text-ink-600 break-words">—</p>
+          </div>
+          <div>
+            <label class="mb-1 block text-xs font-bold uppercase text-ink-500">Caption</label>
+            <p id="media-preview-caption" class="text-sm text-ink-600 break-words">—</p>
+          </div>
+          <div>
+            <label class="mb-1 block text-xs font-bold uppercase text-ink-500">Diunggah</label>
+            <p id="media-preview-date" class="text-sm text-ink-600">—</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </dialog>
+</AdminLayout>
+
+<script is:inline>
+  const uploadForm = document.getElementById('upload-form');
+  const status = document.getElementById('upload-status');
+  const fileInput = document.getElementById('file');
+  const previewWrap = document.getElementById('upload-preview');
+  const previewImg = document.getElementById('upload-preview-img');
+  const previewName = document.getElementById('upload-preview-name');
+  const previewClear = document.getElementById('upload-preview-clear');
+
+  fileInput?.addEventListener('change', () => {
+    const file = fileInput.files?.[0];
+    if (!file) return;
+
+    const url = URL.createObjectURL(file);
+    previewImg.src = url;
+    previewImg.alt = file.name;
+    previewName.textContent = file.name;
+    previewWrap?.classList.remove('hidden');
+  });
+
+  previewClear?.addEventListener('click', () => {
+    fileInput.value = '';
+    previewImg.src = '';
+    previewName.textContent = '';
+    previewWrap?.classList.add('hidden');
+  });
+
+  uploadForm?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const form = e.target;
+    const fileInput = form.querySelector('#file');
+    const file = fileInput.files?.[0];
+
+    if (!file) {
+      status.textContent = 'Pilih berkas dulu.';
+      status.className = 'text-sm text-brand-600';
+      return;
+    }
+
+    status.textContent = 'Mengunggah…';
+    status.className = 'text-sm text-ink-500';
+
+    try {
+      const res = await fetch('/api/admin/media', { method: 'POST', credentials: 'include', body: new FormData(form) });
+      const data = await res.json().catch(() => ({}));
+
+      if (res.ok && data.url) {
+        const grid = document.querySelector('[data-media-grid]');
+        if (grid) {
+          const item = document.createElement('div');
+          item.className = 'group overflow-hidden rounded-xl border border-ink-200 bg-surface';
+          item.innerHTML =
+            '<div class="aspect-square overflow-hidden bg-ink-100">' +
+            '<img src="' + data.url + '" alt="" class="h-full w-full object-cover loading" />' +
+            '</div>' +
+            '<div class="p-2.5"><p class="truncate text-xs font-semibold text-ink-800">' + file.name + '</p></div>';
+          grid.prepend(item);
+        }
+        status.textContent = 'Berhasil diunggah. Memuat ulang…';
+        status.className = 'text-sm text-emerald-600';
+        setTimeout(() => location.reload(), 800);
+      } else {
+        status.textContent = typeof data === 'string' ? data : (data.error || 'Gagal mengunggah berkas.');
+        status.className = 'text-sm text-brand-600';
+      }
+    } catch (err) {
+      status.textContent = 'Koneksi gagal. Periksa koneksi dan coba lagi.';
+      status.className = 'text-sm text-brand-600';
+    } finally {
+      fileInput.value = '';
+    }
+  });
+
+  document.addEventListener('click', async (e) => {
+    const copyBtn = e.target.closest('[data-copy]');
+    if (copyBtn) {
+      const url = copyBtn.getAttribute('data-copy');
+      const fullUrl = url && url.startsWith('http') ? url : window.origin + url;
+      await navigator.clipboard.writeText(fullUrl);
+      copyBtn.textContent = 'Tersalin!';
+      setTimeout(() => (copyBtn.textContent = 'Salin URL'), 1500);
+      return;
+    }
+
+    const delBtn = e.target.closest('[data-delete]');
+    if (delBtn) {
+      if (!confirm('Hapus berkas ini secara permanen?')) return;
+      const id = delBtn.getAttribute('data-delete');
+      const res = await fetch(`/api/admin/media?id=${id}`, { method: 'DELETE', credentials: 'include' });
+      if (res.ok) location.reload();
+      return;
+    }
+
+    /* preview modal on image click */
+    const previewTrigger = e.target.closest('[data-preview-trigger]');
+    if (previewTrigger) {
+      const item = previewTrigger.closest('[data-preview]');
+      if (item) {
+        const info = JSON.parse(item.getAttribute('data-preview') || '{}');
+      const dialog = document.getElementById('media-preview-dialog');
+      const imgEl = document.getElementById('media-preview-img');
+      if (imgEl) {
+        const url = info.url || '';
+        if (info.mimeType?.startsWith('image/')) {
+          imgEl.innerHTML = '<img src="' + url + '" alt="' + (info.alt || '') + '" class="h-full w-full object-contain" loading="eager" decoding="async" />';
+        } else {
+          imgEl.innerHTML = '<span class="text-2xl text-ink-400">&#128190;</span>';
+        }
+      }
+      const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val ?? '—'; };
+      set('media-preview-name', info.name || info.url);
+      set('media-preview-url', info.url || '');
+      set('media-preview-dimensions', info.width ? `${info.width}×${info.height}` : '—');
+      set('media-preview-size', info.size ? formatBytesClient(info.size) : '—');
+      set('media-preview-mime', info.mimeType || '');
+      set('media-preview-folder', info.folder || '');
+      set('media-preview-alt', info.alt || '—');
+      set('media-preview-caption', info.caption || '—');
+      set('media-preview-date', info.createdAt ? new Date(info.createdAt).toLocaleString('id-ID') : '—');
+      if (dialog && typeof dialog.showModal === 'function') dialog.showModal();
+      return;
+    }
+  }
+
+    const previewClose = e.target.closest('[data-preview-close]');
+    if (previewClose) {
+      const dialog = document.getElementById('media-preview-dialog');
+      if (dialog && dialog.close) dialog.close();
+      return;
+    }
+
+    const previewCopy = e.target.closest('[data-preview-copy]');
+    if (previewCopy) {
+      const url = document.getElementById('media-preview-url')?.textContent ?? '';
+      await navigator.clipboard.writeText(url);
+      previewCopy.textContent = 'Tersalin!';
+      setTimeout(() => (previewCopy.textContent = 'Salin'), 1500);
+      return;
+    }
+
+    /* edit keterangan media (caption + alt) */
+    const editBtn = e.target.closest('[data-edit]');
+    if (editBtn) {
+      const info = JSON.parse(editBtn.getAttribute('data-edit') || '{}');
+      const dialog = document.getElementById('media-info-dialog');
+      const form = document.getElementById('media-info-form');
+      const nameEl = document.getElementById('media-info-name');
+      const infoStatus = document.getElementById('media-info-status');
+
+      if (form) {
+        form.dataset.id = String(info.id ?? '');
+        form.querySelector('[name="caption"]').value = info.caption ?? '';
+        form.querySelector('[name="alt"]').value = info.alt ?? '';
+      }
+      if (nameEl) nameEl.textContent = info.name ?? '';
+      if (infoStatus) infoStatus.textContent = '';
+      if (dialog && typeof dialog.showModal === 'function') dialog.showModal();
+      return;
+    }
+
+    const closeBtn = e.target.closest('[data-info-close]');
+    if (closeBtn) {
+      const dialog = document.getElementById('media-info-dialog');
+      if (dialog && dialog.close) dialog.close();
+    }
+  });
+
+  function formatBytesClient(bytes) {
+    if (!bytes) return '0 B';
+    const units = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
+    return (bytes / 1024 ** i).toFixed(i === 0 ? 0 : 1) + ' ' + units[i];
+  }
+
+  /* simpan keterangan media */
+  document.getElementById('media-info-form')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const form = e.target;
+    const id = form.dataset.id;
+    const infoStatus = document.getElementById('media-info-status');
+    const payload = {
+      caption: form.querySelector('[name="caption"]').value,
+      alt: form.querySelector('[name="alt"]').value,
+    };
+
+    if (infoStatus) infoStatus.textContent = 'Menyimpan…';
+
+    const res = await fetch(`/api/admin/media?id=${id}`, {
+      method: 'PATCH',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+
+    if (res.ok) {
+      if (infoStatus) infoStatus.textContent = 'Tersimpan. Memuat ulang…';
+      setTimeout(() => location.reload(), 600);
+    } else {
+      if (infoStatus) infoStatus.textContent = 'Gagal menyimpan.';
+    }
+  });
+</script>

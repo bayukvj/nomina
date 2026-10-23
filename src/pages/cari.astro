@@ -1,0 +1,70 @@
+---
+import PublicLayout from '../layouts/PublicLayout.astro';
+import ArchiveView from '../components/ArchiveView.astro';
+import { getSettings } from '../lib/settings';
+import { getPosts } from '../lib/content';
+
+const settings = await getSettings();
+const q = (Astro.url.searchParams.get('q') ?? '').trim();
+const page = Math.max(1, Number(Astro.url.searchParams.get('page') ?? 1) || 1);
+const perPage = Number(settings.postsPerPage) || 10;
+
+const result = q
+  ? await getPosts({ page, perPage, search: q, sort: 'terbaru' })
+  : { rows: [], total: 0, totalPages: 0, page, perPage };
+---
+
+<PublicLayout
+  title={q ? `Hasil pencarian "${q}"` : 'Pencarian'}
+  description={q ? `Hasil pencarian untuk ${q}` : 'Cari berita, artikel, dan multimedia di situs kami.'}
+  noindex
+>
+  <div class="container-site py-8">
+    <div class="relative mb-10 overflow-hidden rounded-3xl bg-rainbow-soft p-6 sm:p-10">
+      <div class="blob blob-brand -top-20 -left-12 h-56 w-56 opacity-30"></div>
+      <div class="blob blob-grape -right-10 -bottom-24 h-56 w-56 opacity-25"></div>
+      <div class="relative z-10">
+        <h1 class="font-display text-2xl font-extrabold tracking-tight text-ink-900 sm:text-3xl">
+          Cari Artikel
+        </h1>
+        <p class="mt-1 text-ink-600">Temukan berita, video, dan multimedia di arsip kami.</p>
+
+        <form method="get" action="/cari" class="mt-6 flex max-w-2xl gap-2">
+          <input
+            type="search"
+            name="q"
+            value={q}
+            placeholder="Kata kunci…"
+            class="w-full rounded-full border border-white/60 bg-surface/80 px-5 py-3 text-sm outline-none transition focus:border-brand-400 focus:bg-surface focus:ring-4 focus:ring-brand-100"
+          />
+          <button
+            type="submit"
+            class="shrink-0 rounded-full bg-brand-400 px-6 py-3 text-sm font-extrabold text-brand-ink shadow-pop transition hover:opacity-90"
+          >
+            Cari
+          </button>
+        </form>
+      </div>
+    </div>
+
+    {
+      q ? (
+        <ArchiveView
+          title={`Hasil pencarian: ${q}`}
+          subtitle={`${result.total} artikel ditemukan`}
+          posts={result.rows}
+          page={page}
+          totalPages={result.totalPages}
+          baseUrl="/cari"
+          extraParams={{ q }}
+          emptyMessage="Tidak ada artikel yang cocok. Coba kata kunci lain."
+        />
+      ) : (
+        <div class="rounded-3xl border border-dashed border-ink-300 bg-surface p-14 text-center text-ink-500">
+          <span class="text-4xl">🔍</span>
+          <p class="mt-3">Masukkan kata kunci untuk mencari artikel di situs ini.</p>
+        </div>
+      )
+    }
+  </div>
+</PublicLayout>

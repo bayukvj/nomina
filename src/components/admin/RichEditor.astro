@@ -1,0 +1,423 @@
+---
+/**
+ * Editor klasik (rich text) bergaya WordPress.
+ * TinyMCE dimuat dinamis hanya di halaman yang memakainya.
+ */
+interface Props {
+  name?: string;
+  value?: string;
+  placeholder?: string;
+  height?: number;
+  help?: string;
+}
+
+const {
+  name = 'content',
+  value = '',
+  placeholder = 'Tulis isi artikel di sini…',
+  height = 460,
+  help = '',
+} = Astro.props;
+---
+
+<div class="space-y-2" data-rich-editor data-height={height}>
+  <textarea
+    id={`field-${name}`}
+    name={name}
+    data-editor-target
+    placeholder={placeholder}
+    class="w-full rounded-2xl border border-ink-200 bg-surface px-4 py-3 text-sm leading-relaxed text-ink-800 outline-none focus:border-brand-400 focus:ring-4 focus:ring-brand-100"
+    style={`min-height:${height}px`}
+  >
+    {value}
+  </textarea>
+
+  {help && <p class="text-xs text-ink-500">{help}</p>}
+
+  <dialog
+    data-media-dialog
+    class="m-auto max-h-[90vh] w-[min(94vw,860px)] overflow-hidden rounded-3xl border border-ink-200 bg-surface p-0 shadow-pop backdrop:bg-ink-900/70 backdrop:backdrop-blur-sm"
+  >
+    <div class="flex max-h-[90vh] flex-col">
+      <div class="flex flex-wrap items-center justify-between gap-3 border-b border-ink-100 p-5">
+        <h3 class="font-display text-base font-extrabold text-ink-900">Sisipkan Gambar</h3>
+
+        <div class="flex items-center gap-2">
+          <label
+            class="inline-flex cursor-pointer items-center gap-1.5 rounded-full bg-brand-400 px-3.5 py-2 text-xs font-extrabold text-brand-ink transition hover:opacity-90"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-3.5 w-3.5">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <path d="M17 8l-5-5-5 5"></path>
+              <path d="M12 3v12"></path>
+            </svg>
+            Unggah dari Komputer
+            <input type="file" accept="image/*" class="hidden" data-media-upload />
+          </label>
+
+          <button
+            type="button"
+            data-media-close
+            class="rounded-full border border-ink-200 px-3.5 py-2 text-xs font-bold text-ink-600 transition hover:border-brand-400"
+          >
+            Tutup
+          </button>
+        </div>
+      </div>
+
+      <div class="border-b border-ink-100 p-4">
+        <input
+          type="search"
+          data-media-search
+          placeholder="Cari nama berkas…"
+          class="w-full rounded-xl border border-ink-200 bg-ink-50 px-4 py-2.5 text-sm outline-none focus:border-brand-400 focus:bg-surface focus:ring-4 focus:ring-brand-100"
+        />
+        <p class="mt-2 text-xs text-ink-500" data-media-status></p>
+      </div>
+
+      <div
+        class="grid max-h-[52vh] grid-cols-2 gap-3 overflow-y-auto p-4 sm:grid-cols-4"
+        data-media-grid
+      >
+        <p class="col-span-full py-8 text-center text-sm text-ink-500">Memuat pustaka media…</p>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- dialog tambah caption -->
+  <dialog
+    data-caption-dialog
+    class="m-auto max-h-[90vh] w-[min(94vw,540px)] overflow-hidden rounded-3xl border border-ink-200 bg-surface p-0 shadow-pop backdrop:bg-ink-900/70 backdrop:backdrop-blur-sm"
+  >
+    <div class="p-5">
+      <h3 class="mb-4 font-display text-base font-extrabold text-ink-900">Tambah Caption Gambar</h3>
+
+      <div class="mb-4 overflow-hidden rounded-2xl border border-ink-200 bg-ink-50">
+        <img data-caption-preview src="" alt="" class="max-h-56 w-full object-contain" />
+      </div>
+
+      <label class="block">
+        <span class="mb-1.5 block text-xs font-bold text-ink-600">
+          Caption <span class="font-normal text-ink-400">(opsional)</span>
+        </span>
+        <textarea
+          data-caption-text
+          rows="3"
+          placeholder="Contoh: Suasana di Gedung DPR RI, Rabu (9/6/2026). Foto: Redaksi Nomina"
+          class="w-full rounded-2xl border border-ink-200 bg-ink-50 px-4 py-3 text-sm outline-none transition focus:border-brand-400 focus:bg-surface focus:ring-4 focus:ring-brand-100"
+        ></textarea>
+      </label>
+
+      <p class="mt-2 text-[11px] text-ink-500">
+        Caption ditampilkan di bawah gambar pada halaman artikel.
+      </p>
+
+      <div class="mt-5 flex flex-wrap gap-2">
+        <button
+          type="button"
+          data-caption-insert
+          class="rounded-full bg-brand-400 px-5 py-2.5 text-sm font-extrabold text-brand-ink transition hover:opacity-90"
+        >
+          Sisipkan Gambar
+        </button>
+        <button
+          type="button"
+          data-caption-skip
+          class="rounded-full border border-ink-200 px-5 py-2.5 text-sm font-semibold text-ink-700 transition hover:border-brand-400"
+        >
+          Tanpa Caption
+        </button>
+        <button
+          type="button"
+          data-caption-cancel
+          class="rounded-full px-4 py-2.5 text-sm font-semibold text-ink-500 transition hover:text-ink-800"
+        >
+          Batal
+        </button>
+      </div>
+    </div>
+  </dialog>
+</div>
+
+<script>
+  import 'tinymce/skins/ui/oxide/skin.css';
+  import 'tinymce/skins/ui/oxide/content.css';
+
+  type Tiny = any;
+
+  let tinyPromise: Promise<Tiny> | null = null;
+
+  /**
+   * Semua aset TinyMCE (ikon, tema, model, plugin) dibundel di dalam
+   * aplikasi — tidak ada permintaan jaringan saat editor dibuka.
+   */
+  async function loadTinyMCE(): Promise<Tiny> {
+    if (!tinyPromise) {
+      tinyPromise = (async () => {
+        const mod = await import('tinymce/tinymce');
+        const tiny = (mod as any).default ?? mod;
+
+        await import('tinymce/icons/default/icons.js');
+        await import('tinymce/themes/silver/theme.js');
+        await import('tinymce/models/dom/model.js');
+        await import('tinymce/plugins/lists/plugin.js');
+        await import('tinymce/plugins/link/plugin.js');
+        await import('tinymce/plugins/image/plugin.js');
+        await import('tinymce/plugins/table/plugin.js');
+        await import('tinymce/plugins/codesample/plugin.js');
+        await import('tinymce/plugins/charmap/plugin.js');
+        await import('tinymce/plugins/searchreplace/plugin.js');
+        await import('tinymce/plugins/visualblocks/plugin.js');
+        await import('tinymce/plugins/wordcount/plugin.js');
+
+        return tiny;
+      })();
+    }
+    return tinyPromise;
+  }
+
+  /**
+   * Setelah gambar dipilih, minta caption lalu sisipkan ke editor
+   * sebagai <figure> + <figcaption> (gaya WordPress).
+   */
+  function askCaption(editor: Tiny, url: string, alt: string, defaultCaption = '') {
+    const dialog = document.querySelector('[data-caption-dialog]') as HTMLDialogElement | null;
+    const preview = document.querySelector('[data-caption-preview]') as HTMLImageElement | null;
+    const text = document.querySelector('[data-caption-text]') as HTMLTextAreaElement | null;
+    if (!dialog) {
+      editor.insertContent(`<img src="${url}" alt="${alt}" />`);
+      return;
+    }
+
+    if (preview) {
+      preview.src = url;
+      preview.alt = alt;
+    }
+    if (text) text.value = defaultCaption;
+
+    const insertWith = (caption: string) => {
+      const clean = caption.trim();
+      if (clean) {
+        editor.insertContent(
+          `<figure><img src="${url}" alt="${alt}" /><figcaption>${clean}</figcaption></figure>`,
+        );
+      } else {
+        editor.insertContent(`<img src="${url}" alt="${alt}" />`);
+      }
+      if (typeof dialog.close === 'function') dialog.close();
+    };
+
+    const onInsert = () => insertWith(text ? text.value : '');
+    const onSkip = () => insertWith('');
+    const onCancel = () => {
+      if (typeof dialog.close === 'function') dialog.close();
+    };
+
+    const insBtn = document.querySelector('[data-caption-insert]');
+    const skipBtn = document.querySelector('[data-caption-skip]');
+    const cancelBtn = document.querySelector('[data-caption-cancel]');
+
+    insBtn?.replaceWith(insBtn.cloneNode(true));
+    skipBtn?.replaceWith(skipBtn.cloneNode(true));
+    cancelBtn?.replaceWith(cancelBtn.cloneNode(true));
+
+    document
+      .querySelector('[data-caption-insert]')
+      ?.addEventListener('click', onInsert);
+    document.querySelector('[data-caption-skip]')?.addEventListener('click', onSkip);
+    document.querySelector('[data-caption-cancel]')?.addEventListener('click', onCancel);
+
+    if (typeof dialog.showModal === 'function') dialog.showModal();
+    else dialog.setAttribute('open', '');
+    setTimeout(() => text?.focus(), 120);
+  }
+
+  async function openMediaDialog(editor: Tiny) {
+    const dialog = document.querySelector('[data-media-dialog]') as HTMLDialogElement | null;
+    const grid = document.querySelector('[data-media-grid]');
+    const search = document.querySelector('[data-media-search]') as HTMLInputElement | null;
+    const status = document.querySelector('[data-media-status]');
+    const upload = document.querySelector('[data-media-upload]') as HTMLInputElement | null;
+    if (!dialog || !grid) return;
+
+    const say = (text: string, tone: 'ok' | 'error' | '' = '') => {
+      if (!status) return;
+      status.textContent = text;
+      status.className =
+        'mt-2 text-xs ' +
+        (tone === 'ok' ? 'text-mint-600' : tone === 'error' ? 'text-brand-600' : 'text-ink-500');
+    };
+
+    const insert = (url: string, alt: string, caption = '') => {
+      askCaption(editor, url, alt, caption);
+    };
+
+    grid.innerHTML =
+      '<p class="col-span-full py-8 text-center text-sm text-ink-500">Memuat pustaka media…</p>';
+    say('');
+
+    let items: any[] = [];
+
+    const render = (term: string) => {
+      const list = items.filter(
+        (i: any) => !term || (i.originalName ?? '').toLowerCase().includes(term.toLowerCase()),
+      );
+
+      if (list.length === 0) {
+        grid.innerHTML =
+          '<p class="col-span-full py-8 text-center text-sm text-ink-500">Tidak ada gambar di pustaka. Unggah dari komputer untuk memulai.</p>';
+        return;
+      }
+
+      grid.innerHTML = '';
+      list.forEach((item: any) => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className =
+          'group relative aspect-square overflow-hidden rounded-xl border-2 border-transparent transition hover:border-brand-400';
+        button.innerHTML =
+          '<img src="' +
+          item.url +
+          '" alt="" class="h-full w-full object-cover" loading="lazy" />' +
+          '<span class="absolute inset-x-0 bottom-0 truncate bg-night-900/70 px-2 py-1 text-[10px] text-white opacity-0 transition group-hover:opacity-100">' +
+          (item.originalName ?? '') +
+          '</span>';
+        button.addEventListener('click', () =>
+          insert(item.url, item.alt ?? item.originalName ?? '', item.caption ?? ''),
+        );
+        grid.appendChild(button);
+      });
+    };
+
+    try {
+      const res = await fetch('/api/admin/media', { headers: { Accept: 'application/json' } });
+      const data = await res.json();
+      items = Array.isArray(data)
+        ? data.filter((i: any) => i.mimeType?.startsWith('image/'))
+        : [];
+      render('');
+    } catch (err) {
+      grid.innerHTML =
+        '<p class="col-span-full py-8 text-center text-sm text-brand-600">Gagal memuat pustaka media.</p>';
+    }
+
+    if (search) {
+      search.value = '';
+      search.oninput = () => render(search.value);
+    }
+
+    /* unggah dari komputer */
+    if (upload) {
+      upload.onchange = async () => {
+        const file = upload.files && upload.files[0];
+        if (!file) return;
+
+        say('Mengunggah…');
+        const fd = new FormData();
+        fd.append('file', file);
+        fd.append('alt', file.name);
+
+        try {
+          const res = await fetch('/api/admin/media', { method: 'POST', body: fd });
+          const data = await res.json();
+          if (!res.ok) throw new Error(typeof data === 'string' ? data : 'Gagal mengunggah.');
+
+          items = [
+            {
+              id: data.id,
+              url: data.url,
+              originalName: file.name,
+              alt: file.name,
+              mimeType: file.type,
+            },
+            ...items,
+          ];
+          render(search ? search.value : '');
+          say('Berhasil diunggah. Gambar langsung disisipkan.', 'ok');
+          askCaption(editor, data.url, file.name, '');
+          upload.value = '';
+        } catch (err: any) {
+          say('Gagal mengunggah: ' + (err?.message ?? 'unknown'), 'error');
+          upload.value = '';
+        }
+      };
+    }
+
+    if (typeof dialog.showModal === 'function') dialog.showModal();
+    else dialog.setAttribute('open', '');
+  }
+
+  async function initEditors() {
+    const roots = document.querySelectorAll('[data-rich-editor]');
+    if (roots.length === 0) return;
+
+    const tiny = await loadTinyMCE();
+
+    roots.forEach((root) => {
+      const textarea = root.querySelector('[data-editor-target]') as HTMLTextAreaElement | null;
+      if (!textarea || (textarea as any).__tinyReady) return;
+      (textarea as any).__tinyReady = true;
+
+      const height = Number(root.getAttribute('data-height') || 460);
+
+      tiny.init({
+        target: textarea,
+        height,
+        menubar: false,
+        branding: false,
+        promotion: false,
+        statusbar: true,
+        resize: true,
+        skin: false,
+        content_css: false,
+        license_key: 'gpl',
+        /* jangan mengubah URL gambar (tetap "/uploads/..." agar valid di situs publik) */
+        convert_urls: false,
+        relative_urls: false,
+        placeholder: textarea.getAttribute('placeholder') || '',
+        plugins: 'lists link image table codesample charmap searchreplace visualblocks wordcount',
+        toolbar_mode: 'wrap',
+        toolbar:
+          'undo redo | blocks | bold italic underline strikethrough | ' +
+          'alignleft aligncenter alignright | bullist numlist outdent indent | ' +
+          'blockquote | link image nominaimage table | removeformat | code | visualblocks',
+        block_formats:
+          'Paragraf=p; Heading 1=h1; Heading 2=h2; Heading 3=h3; Heading 4=h4; Judul=H2; ' +
+          'Kutipan=blockquote; Kode=pre',
+        content_style:
+          'body{font-family:inherit;font-size:16px;line-height:1.8;color:#1c1917;max-width:780px;margin:0 auto;padding:8px 14px}' +
+          'img{max-width:100%;height:auto;border-radius:12px;display:block;margin:12px 0}' +
+          'figure{margin:18px 0}' +
+          'figure img{margin:0;width:100%}' +
+          'figcaption{margin-top:8px;font-size:12px;color:#78716c;text-align:center;line-height:1.5}' +
+          'h1{font-size:1.9rem;line-height:1.2;margin:20px 0 10px}' +
+          'h2{font-size:1.5rem;line-height:1.25;margin:18px 0 8px}' +
+          'h3{font-size:1.2rem;line-height:1.3;margin:16px 0 6px}' +
+          'blockquote{border-left:4px solid #facc15;background:#fefce8;padding:12px 16px;border-radius:0 12px 12px 0;margin:16px 0;font-style:italic}' +
+          'pre{background:#1c1917;color:#fafaf9;padding:14px 16px;border-radius:12px;overflow-x:auto;font-size:13px;line-height:1.6;margin:16px 0}' +
+          'code{background:#f5f5f4;padding:2px 5px;border-radius:5px;font-size:.9em}' +
+          'a{color:#4f46e5;text-decoration:underline}',
+        setup(editor: Tiny) {
+          editor.ui.registry.addButton('nominaimage', {
+            icon: 'image',
+            tooltip: 'Sisipkan gambar dari pustaka media',
+            onAction: () => openMediaDialog(editor),
+          });
+
+          editor.on('init', () => {
+            document.querySelector('[data-media-close]')?.addEventListener('click', () => {
+              const dialog = document.querySelector('[data-media-dialog]') as HTMLDialogElement | null;
+              if (dialog && typeof dialog.close === 'function') dialog.close();
+            });
+          });
+        },
+      });
+    });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initEditors);
+  } else {
+    initEditors();
+  }
+</script>

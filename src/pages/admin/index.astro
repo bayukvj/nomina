@@ -1,0 +1,436 @@
+---
+import AdminLayout from '../../layouts/AdminLayout.astro';
+import Icon from '../../components/admin/Icon.astro';
+import ViewsChart from '../../components/admin/ViewsChart.astro';
+import {
+  getStats,
+  getPosts,
+  getAllCategories,
+  getPendingComments,
+  getRecentComments,
+  getViewsSeries,
+  getViewTotals,
+  type PopularRange,
+} from '../../lib/content';
+import { formatNumber, timeAgo, formatDate } from '../../lib/utils';
+
+const user = Astro.locals.user;
+
+/* filter periode artikel populer */
+const rangeParam = Astro.url.searchParams.get('range') ?? 'week';
+const ranges: PopularRange[] = ['day', 'week', 'month', 'year'];
+const popularRange: PopularRange = ranges.includes(rangeParam as PopularRange)
+  ? (rangeParam as PopularRange)
+  : 'week';
+const rangeLabels: Record<string, string> = {
+  day: '24 Jam',
+  week: 'Minggu',
+  month: 'Bulan',
+  year: 'Tahun',
+};
+
+/* filter periode chart */
+const chartParam = Number(Astro.url.searchParams.get('chart') ?? 30);
+const chartDays = [7, 30, 90].includes(chartParam) ? chartParam : 30;
+
+const [stats, latest, categories, pending, recentComments, series, totals] = await Promise.all([
+  getStats(),
+  getPosts({ includeAll: true, perPage: 6, sort: 'terbaru' }),
+  getAllCategories(),
+  getPendingComments(4),
+  getRecentComments(5),
+  getViewsSeries(chartDays),
+  getViewTotals(),
+]);
+
+const popular = await getPosts({
+  perPage: 6,
+  sort: 'populer',
+  popularRange,
+  limit: 6,
+});
+
+const topCategories = categories.sort((a, b) => b.count - a.count).slice(0, 6);
+
+const statCards = [
+  { label: 'Total Post', value: stats.posts, icon: 'posts', href: '/admin/posts', color: 'from-grape-500 to-coral-500' },
+  { label: 'Dipublikasikan', value: stats.published, icon: 'eye', href: '/admin/posts?status=published', color: 'from-mint-500 to-sky-500' },
+  { label: 'Draft', value: stats.drafts, icon: 'edit', href: '/admin/posts?status=draft', color: 'from-sun-500 to-coral-500' },
+  { label: 'Total Dibaca', value: totals.total, icon: 'chart', href: '/admin/comments', color: 'from-brand-500 to-grape-500' },
+];
+
+const chartLabel = chartDays === 7 ? '7 hari' : chartDays === 30 ? '30 hari' : '90 hari';
+---
+
+<AdminLayout title="Dashboard" active="dashboard" wide>
+  <!-- ===== ringkasan ===== -->
+  <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+    {
+      statCards.map((card) => (
+        <a
+          href={card.href}
+          class="group card-modern card-modern-hover flex items-start justify-between p-5"
+        >
+          <div>
+            <p class="text-xs font-extrabold uppercase tracking-wider text-ink-500">{card.label}</p>
+            <p class="mt-2 font-display text-3xl font-extrabold text-ink-900">
+              {formatNumber(card.value)}
+            </p>
+          </div>
+          <span
+            class={`flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br ${card.color} text-brand-ink shadow-soft transition group-hover:scale-110`}
+          >
+            <Icon name={card.icon} class="h-5 w-5" />
+          </span>
+        </a>
+      ))
+    }
+  </div>
+
+  <!-- ===== chart + artikel populer ===== -->
+  <div class="mt-5 grid gap-5 xl:grid-cols-3">
+    <section class="card-modern p-5 xl:col-span-2">
+      <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <h2 class="flex items-center gap-2 text-base font-extrabold text-ink-900">
+          <span class="h-2 w-2 rounded-full bg-brand-500" /> Analitik Tayangan
+        </h2>
+        <div class="flex items-center gap-1 rounded-full bg-ink-100 p-1 text-xs font-bold">
+          {
+            [7, 30, 90].map((d) => (
+              <a
+                href={`/admin?chart=${d}`}
+                class={`rounded-full px-3 py-1 transition ${
+                  d === chartDays
+                    ? 'bg-surface text-ink-900 shadow-soft'
+                    : 'text-ink-500 hover:text-ink-800'
+                }`}
+              >
+                {d} hari
+              </a>
+            ))
+          }
+        </div>
+      </div>
+
+      <ViewsChart series={series} label={chartLabel} />
+
+      <div class="mt-4 grid grid-cols-3 gap-3 border-t border-ink-100 pt-4">
+        <div>
+          <p class="text-[11px] font-bold uppercase tracking-wider text-ink-500">Hari ini</p>
+          <p class="font-display text-xl font-extrabold text-ink-900">{formatNumber(totals.today)}</p>
+        </div>
+        <div>
+          <p class="text-[11px] font-bold uppercase tracking-wider text-ink-500">7 hari</p>
+          <p class="font-display text-xl font-extrabold text-ink-900">{formatNumber(totals.week)}</p>
+        </div>
+        <div>
+          <p class="text-[11px] font-bold uppercase tracking-wider text-ink-500">30 hari</p>
+          <p class="font-display text-xl font-extrabold text-ink-900">{formatNumber(totals.month)}</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="card-modern p-5">
+      <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
+        <h2 class="flex items-center gap-2 whitespace-nowrap text-base font-extrabold text-ink-900">
+          <span class="h-2 w-2 rounded-full bg-coral-500" /> Artikel Populer
+        </h2>
+        <div class="flex items-center gap-1 rounded-full bg-ink-100 p-1 text-[11px] font-bold">
+          {
+            ranges.map((r) => (
+              <a
+                href={`/admin?range=${r}`}
+                class={`whitespace-nowrap rounded-full px-2.5 py-1 transition ${
+                  r === popularRange ? 'bg-surface text-ink-900 shadow-soft' : 'text-ink-500 hover:text-ink-800'
+                }`}
+              >
+                {rangeLabels[r]}
+              </a>
+            ))
+          }
+        </div>
+      </div>
+
+      <div class="space-y-4">
+        {
+          popular.rows.length === 0 && (
+            <p class="rounded-xl border border-dashed border-ink-300 p-6 text-center text-xs text-ink-500">
+              Belum ada data tayangan pada periode ini.
+            </p>
+          )
+        }
+        {
+          popular.rows.map((p, i) => (
+            <a
+              href={`/admin/posts/${p.post.id}`}
+              class="group flex items-start gap-3"
+            >
+              <span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-brand-400 text-xs font-black text-brand-ink">
+                {i + 1}
+              </span>
+              <div class="min-w-0 flex-1">
+                <p class="line-clamp-2 text-sm font-semibold leading-snug text-ink-900 group-hover:text-brand-700">
+                  {p.post.title}
+                </p>
+                <p class="mt-0.5 text-[11px] text-ink-500">
+                  {p.category?.name ?? 'Tanpa kategori'} • {p.post.views} tayangan
+                </p>
+              </div>
+            </a>
+          ))
+        }
+      </div>
+    </section>
+  </div>
+
+  <!-- ===== post terbaru + komentar ===== -->
+  <div class="mt-5 grid gap-5 xl:grid-cols-3">
+    <section class="card-modern xl:col-span-2">
+      <div class="flex items-center justify-between border-b border-ink-100 px-5 py-4">
+        <h2 class="flex items-center gap-2 text-base font-extrabold text-ink-900">
+          <span class="h-2 w-2 rounded-full bg-mint-500" /> Post Terbaru
+        </h2>
+        <a href="/admin/posts" class="text-xs font-bold text-brand-600 hover:text-brand-500">
+          Kelola Semua →
+        </a>
+      </div>
+      <div class="divide-y divide-ink-100">
+        {
+          latest.rows.length === 0 && (
+            <p class="px-5 py-10 text-center text-sm text-ink-500">
+              Belum ada post.{" "}
+              <a href="/admin/posts/new" class="font-bold text-brand-600">
+                Buat sekarang
+              </a>
+            </p>
+          )
+        }
+        {
+          latest.rows.map((r) => (
+            <div class="flex items-center gap-4 px-5 py-3">
+              <div class="min-w-0 flex-1">
+                <a
+                  href={`/admin/posts/${r.post.id}`}
+                  class="line-clamp-1 text-sm font-semibold text-ink-900 hover:text-brand-700"
+                >
+                  {r.post.title}
+                </a>
+                <p class="mt-0.5 flex flex-wrap items-center gap-2 text-[11px] text-ink-500">
+                  <span
+                    class={`rounded px-1.5 py-0.5 font-bold ${
+                      r.post.status === 'published'
+                        ? 'bg-mint-100 text-mint-700'
+                        : r.post.status === 'draft'
+                          ? 'bg-ink-100 text-ink-600'
+                          : 'bg-sun-100 text-sun-700'
+                    }`}
+                  >
+                    {r.post.status}
+                  </span>
+                  <span>{r.category?.name ?? 'Tanpa kategori'}</span>
+                  <span>•</span>
+                  <span>{timeAgo(r.post.createdAt)}</span>
+                </p>
+              </div>
+              <a
+                href={`/admin/posts/${r.post.id}`}
+                class="rounded-lg border border-ink-200 p-2 text-ink-500 transition hover:border-brand-400 hover:text-brand-600"
+                title="Edit"
+              >
+                <Icon name="edit" class="h-4 w-4" />
+              </a>
+            </div>
+          ))
+        }
+      </div>
+    </section>
+
+    <section class="card-modern p-5">
+      <div class="mb-4 flex items-center justify-between gap-2">
+        <h2 class="flex items-center gap-2 text-base font-extrabold text-ink-900">
+          <span class="h-2 w-2 rounded-full bg-sun-500" /> Komentar
+        </h2>
+        <a href="/admin/comments" class="text-xs font-bold text-brand-600 hover:text-brand-500">
+          Semua →
+        </a>
+      </div>
+
+      <div class="mb-4 rounded-2xl border border-sun-200 bg-sun-50 p-3">
+        <p class="text-[11px] font-extrabold uppercase tracking-wider text-sun-700">
+          Menunggu persetujuan
+        </p>
+        <p class="font-display text-2xl font-extrabold text-ink-900">{stats.pendingComments}</p>
+        {
+          pending.slice(0, 2).map((c) => (
+            <p class="mt-1 line-clamp-1 text-[11px] text-ink-600">
+              <span class="font-bold">{c.comment.name}:</span> {c.comment.body}
+            </p>
+          ))
+        }
+        {
+          pending.length === 0 && (
+            <p class="mt-1 text-[11px] text-ink-500">Tidak ada komentar menunggu.</p>
+          )
+        }
+      </div>
+
+      <p class="mb-2 text-[11px] font-extrabold uppercase tracking-wider text-ink-500">
+        Terbaru
+      </p>
+      <div class="space-y-3">
+        {
+          recentComments.map((c) => (
+            <div class="border-b border-ink-100 pb-3 last:border-0 last:pb-0">
+              <div class="flex items-center gap-2">
+                <span class="flex h-7 w-7 items-center justify-center rounded-full bg-brand-100 text-xs font-bold text-brand-700">
+                  {c.comment.name.charAt(0)}
+                </span>
+                <p class="text-xs font-bold text-ink-900">{c.comment.name}</p>
+                <span
+                  class={`rounded px-1.5 py-0.5 text-[10px] font-bold ${
+                    c.comment.status === 'approved'
+                      ? 'bg-mint-100 text-mint-700'
+                      : c.comment.status === 'pending'
+                        ? 'bg-sun-100 text-sun-700'
+                        : 'bg-ink-100 text-ink-600'
+                  }`}
+                >
+                  {c.comment.status}
+                </span>
+                <span class="ml-auto text-[10px] text-ink-400">{timeAgo(c.comment.createdAt)}</span>
+              </div>
+              <p class="mt-1 line-clamp-2 text-xs leading-relaxed text-ink-600">{c.comment.body}</p>
+            </div>
+          ))
+        }
+      </div>
+    </section>
+  </div>
+
+  <!-- ===== kategori populer + aksi cepat ===== -->
+  <div class="mt-5 grid gap-5 lg:grid-cols-2">
+    <section class="card-modern p-5">
+      <div class="mb-4 flex items-center justify-between gap-2">
+        <h2 class="flex items-center gap-2 text-base font-extrabold text-ink-900">
+          <span class="h-2 w-2 rounded-full bg-sky-500" /> Kategori Terpopuler
+        </h2>
+        <a href="/admin/categories" class="text-xs font-bold text-brand-600 hover:text-brand-500">
+          Kelola →
+        </a>
+      </div>
+
+      <div class="space-y-3">
+        {
+          topCategories.map((cat, i) => {
+            const max = topCategories[0]?.count || 1;
+            const percent = Math.max(6, Math.round((cat.count / max) * 100));
+            return (
+              <a href={`/admin/categories/${cat.id}`} class="group block">
+                <div class="mb-1 flex items-center justify-between text-sm">
+                  <span class="font-semibold text-ink-800 group-hover:text-brand-700">
+                    <span class="mr-2 text-xs font-black text-ink-400">{i + 1}</span>
+                    {cat.name}
+                  </span>
+                  <span class="rounded-full bg-ink-100 px-2 py-0.5 text-[11px] font-bold text-ink-600">
+                    {cat.count} post
+                  </span>
+                </div>
+                <div class="h-2 overflow-hidden rounded-full bg-ink-100">
+                  <div
+                    class="h-full rounded-full bg-gradient-to-r from-brand-400 to-grape-500 transition-all"
+                    style={`width:${percent}%`}
+                  />
+                </div>
+              </a>
+            );
+          })
+        }
+      </div>
+    </section>
+
+    <section class="card-modern p-5">
+      <h2 class="mb-4 flex items-center gap-2 text-base font-extrabold text-ink-900">
+        <span class="h-2 w-2 rounded-full bg-grape-500" /> Aksi Cepat
+      </h2>
+      <div class="grid gap-3 sm:grid-cols-2">
+        <a
+          href="/admin/posts/new"
+          class="group flex items-center gap-3 rounded-2xl bg-gradient-to-br from-brand-400 to-brand-500 p-4 text-brand-ink transition hover:-translate-y-0.5"
+        >
+          <span class="flex h-10 w-10 items-center justify-center rounded-xl bg-white/25">
+            <Icon name="plus" class="h-5 w-5" />
+          </span>
+          <div>
+            <p class="text-sm font-extrabold">Tulis Post</p>
+            <p class="text-[11px] opacity-80">Buat artikel baru</p>
+          </div>
+        </a>
+
+        <a
+          href="/admin/media"
+          class="group flex items-center gap-3 rounded-2xl border border-ink-200 p-4 transition hover:-translate-y-0.5 hover:border-brand-300"
+        >
+          <span class="flex h-10 w-10 items-center justify-center rounded-xl bg-mint-100 text-mint-700">
+            <Icon name="upload" class="h-5 w-5" />
+          </span>
+          <div>
+            <p class="text-sm font-extrabold text-ink-900">Unggah Media</p>
+            <p class="text-[11px] text-ink-500">Gambar &amp; video</p>
+          </div>
+        </a>
+
+        <a
+          href="/admin/pages/new"
+          class="group flex items-center gap-3 rounded-2xl border border-ink-200 p-4 transition hover:-translate-y-0.5 hover:border-grape-300"
+        >
+          <span class="flex h-10 w-10 items-center justify-center rounded-xl bg-grape-100 text-grape-700">
+            <Icon name="pages" class="h-5 w-5" />
+          </span>
+          <div>
+            <p class="text-sm font-extrabold text-ink-900">Buat Halaman</p>
+            <p class="text-[11px] text-ink-500">Statis &amp; profil</p>
+          </div>
+        </a>
+
+        <a
+          href="/admin/comments"
+          class="group flex items-center gap-3 rounded-2xl border border-ink-200 p-4 transition hover:-translate-y-0.5 hover:border-sun-300"
+        >
+          <span class="flex h-10 w-10 items-center justify-center rounded-xl bg-sun-100 text-sun-700">
+            <Icon name="comments" class="h-5 w-5" />
+          </span>
+          <div>
+            <p class="text-sm font-extrabold text-ink-900">Moderasi Komentar</p>
+            <p class="text-[11px] text-ink-500">{stats.pendingComments} menunggu</p>
+          </div>
+        </a>
+
+        <a
+          href="/admin/settings"
+          class="group flex items-center gap-3 rounded-2xl border border-ink-200 p-4 transition hover:-translate-y-0.5 hover:border-sky-300"
+        >
+          <span class="flex h-10 w-10 items-center justify-center rounded-xl bg-sky-100 text-sky-700">
+            <Icon name="settings" class="h-5 w-5" />
+          </span>
+          <div>
+            <p class="text-sm font-extrabold text-ink-900">Pengaturan Situs</p>
+            <p class="text-[11px] text-ink-500">Tema, SEO, menu</p>
+          </div>
+        </a>
+
+        <a
+          href="/admin/menus"
+          class="group flex items-center gap-3 rounded-2xl border border-ink-200 p-4 transition hover:-translate-y-0.5 hover:border-brand-300"
+        >
+          <span class="flex h-10 w-10 items-center justify-center rounded-xl bg-ink-100 text-ink-700">
+            <Icon name="menu" class="h-5 w-5" />
+          </span>
+          <div>
+            <p class="text-sm font-extrabold text-ink-900">Kelola Menu</p>
+            <p class="text-[11px] text-ink-500">Navigasi situs</p>
+          </div>
+        </a>
+      </div>
+    </section>
+  </div>
+</AdminLayout>

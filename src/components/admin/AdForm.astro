@@ -1,0 +1,204 @@
+---
+import Field from './Field.astro';
+import MediaPicker from './MediaPicker.astro';
+
+interface Props {
+  ad?: any;
+  mediaOptions?: { id: number; url: string; filename: string }[];
+  categories?: { id: number; name: string }[];
+  error?: string;
+  csrfToken?: string;
+}
+
+const { ad = null, mediaOptions = [], categories = [], error = '', csrfToken = '' } = Astro.props;
+const action = ad ? `/admin/ads/${ad.id}` : '/admin/ads/new';
+const selectedCats = (ad?.targetCategories ?? []) as number[];
+---
+
+{
+  error && (
+    <div class="mb-5 rounded-lg border border-brand-200 bg-brand-50 px-4 py-3 text-sm font-semibold text-brand-700">
+      {error}
+    </div>
+  )
+}
+
+<form method="post" action={action} class="grid gap-6 lg:grid-cols-3">
+  <input type="hidden" name="_csrf" value={csrfToken} />
+  <div class="space-y-5 lg:col-span-2">
+    <section class="rounded-xl border border-ink-200 bg-surface p-5">
+      <h2 class="mb-4 text-base font-extrabold text-ink-900">Informasi Iklan</h2>
+      <div class="space-y-5">
+        <Field name="name" label="Nama Iklan" required value={ad?.name ?? ''} help="Nama internal untuk memudahkan Anda mengidentifikasi iklan ini." />
+
+        <Field
+          name="type"
+          label="Jenis Iklan"
+          type="select"
+          value={ad?.type ?? 'image'}
+          options={[
+            { value: 'image', label: 'Gambar (Banner) — unggah dari pustaka media' },
+            { value: 'code', label: 'Kode Custom — HTML/JS arbitrer' },
+            { value: 'adsense', label: 'Google AdSense — unit iklan' },
+          ]}
+          help="Gambar = banner statis. Kode Custom = HTML/JS bebas. AdSense = kode unit AdSense."
+        />
+
+        <Field
+          name="placement"
+          label="Penempatan"
+          type="select"
+          value={ad?.placement ?? 'sidebar_top'}
+          options={[
+            { value: 'below_hero', label: 'Bawah Hero (Beranda) — banner lebar' },
+            { value: 'sidebar_top', label: 'Sidebar Atas - di atas sidebar' },
+            { value: 'sidebar_bottom', label: 'Sidebar Bawah — di bawah sidebar' },
+            { value: 'in_article', label: 'Dalam Artikel — di tengah isi artikel' },
+            { value: 'after_content', label: 'Setelah Isi Artikel' },
+            { value: 'between_posts', label: 'Antar Kartu Artikel' },
+            { value: 'footer', label: 'Atas Footer' },
+          ]}
+          help="Pilih posisi yang paling sesuai dengan format iklannya."
+        />
+      </div>
+    </section>
+
+    <section class="rounded-xl border border-ink-200 bg-surface p-5" data-ad-image>
+      <h2 class="mb-4 text-base font-extrabold text-ink-900">Gambar Iklan</h2>
+      <div class="space-y-5">
+        <MediaPicker
+          name="mediaId"
+          label="Banner (gambar)"
+          value={ad?.mediaId ?? ''}
+          media={mediaOptions}
+          help="Ukuran ideal: 728×90 (leaderboard), 300×250 (sidebar), atau 970×250 (billboard)."
+        />
+        <Field
+          name="linkUrl"
+          label="URL Tujuan"
+          type="url"
+          value={ad?.linkUrl ?? ''}
+          placeholder="https://mitra-iklan.com/landing-page"
+          help="Tujuan ketika iklan diklik. Kosongkan bila tidak ada."
+        />
+        <Field
+          name="altText"
+          label="Teks Alternatif Iklan"
+          value={ad?.altText ?? ''}
+          help="Deskripsi singkat gambar untuk pembaca layar."
+        />
+      </div>
+    </section>
+
+    <section class="rounded-xl border border-ink-200 bg-surface p-5" data-ad-code>
+      <h2 class="mb-4 text-base font-extrabold text-ink-900">Kode Iklan</h2>
+      <div class="space-y-5">
+        <Field
+          name="code"
+          label="Kode HTML / JavaScript"
+          type="textarea"
+          rows={10}
+          value={ad?.code ?? ''}
+          placeholder={'<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-XXXX"></script>\n<ins class="adsbygoogle" style="display:block" data-ad-client="ca-pub-XXXX" data-ad-slot="YYYY" data-ad-format="auto" data-full-width-responsive="true"></ins>'}
+          help="Tempel kode iklan di sini. Untuk Google AdSense, gunakan opsi “AdSense” lalu sisipkan unit <ins> beserta skrip loader-nya."
+        />
+      </div>
+    </section>
+  </div>
+
+  <div class="space-y-5">
+    <section class="rounded-xl border border-ink-200 bg-surface p-5">
+      <h2 class="mb-4 text-base font-extrabold text-ink-900">Status &amp; Targeting</h2>
+      <div class="space-y-5">
+        <Field
+          name="status"
+          label="Status"
+          type="select"
+          value={ad?.status ?? 'active'}
+          options={[
+            { value: 'active', label: 'Aktif' },
+            { value: 'paused', label: 'Jeda' },
+            { value: 'scheduled', label: 'Terjadwal' },
+          ]}
+        />
+        <Field
+          name="label"
+          label="Label Iklan"
+          value={ad?.label ?? ''}
+          help="Teks kecil di atas iklan. Kosongkan untuk memakai label bawaan."
+        />
+        <Field
+          name="startAt"
+          label="Mulai Tayang"
+          type="date"
+          value={ad?.startAt ?? ''}
+          help="Opsional. Iklan hanya tampil setelah tanggal ini."
+        />
+        <Field
+          name="endAt"
+          label="Berhenti Tayang"
+          type="date"
+          value={ad?.endAt ?? ''}
+          help="Opsional. Iklan berhenti tampil setelah tanggal ini."
+        />
+      </div>
+    </section>
+
+    <section class="rounded-xl border border-ink-200 bg-surface p-5">
+      <h2 class="mb-3 text-base font-extrabold text-ink-900">Target Kategori</h2>
+      <p class="mb-3 text-xs leading-relaxed text-ink-500">
+        Kosongkan untuk menampilkan di semua kategori. Pilih kategori untuk membatasi.
+      </p>
+      <div class="max-h-56 space-y-1 overflow-y-auto rounded-xl border border-ink-200 p-3">
+        {
+          categories.map((c) => (
+            <label class="flex items-center gap-2 rounded px-1.5 py-1 text-sm hover:bg-ink-50">
+              <input
+                type="checkbox"
+                name="targetCategories"
+                value={c.id}
+                checked={selectedCats.includes(c.id)}
+                class="h-4 w-4 rounded border-ink-300 text-brand-600 focus:ring-brand-500"
+              />
+              <span class="text-ink-700">{c.name}</span>
+            </label>
+          ))
+        }
+      </div>
+    </section>
+
+    <div class="sticky bottom-4 flex gap-2 rounded-xl border border-ink-200 bg-surface p-4 shadow-lg">
+      <button
+        type="submit"
+        class="flex-1 rounded-lg bg-brand-400 px-4 py-2.5 text-sm font-extrabold text-brand-ink transition hover:opacity-90"
+      >
+        {ad ? 'Perbarui Iklan' : 'Simpan Iklan'}
+      </button>
+      <a
+        href="/admin/ads"
+        class="rounded-lg border border-ink-200 px-4 py-2.5 text-sm font-semibold text-ink-700 transition hover:border-brand-500"
+      >
+        Batal
+      </a>
+    </div>
+  </div>
+</form>
+
+<script is:inline>
+  (function () {
+    const typeSelect = document.querySelector('select[name="type"]');
+    const imageBlock = document.querySelector('[data-ad-image]');
+    const codeBlock = document.querySelector('[data-ad-code]');
+
+    if (!typeSelect) return;
+
+    const sync = () => {
+      const type = typeSelect.value;
+      if (imageBlock) imageBlock.classList.toggle('hidden', type !== 'image');
+      if (codeBlock) codeBlock.classList.toggle('hidden', type === 'image');
+    };
+
+    typeSelect.addEventListener('change', sync);
+    sync();
+  })();
+</script>

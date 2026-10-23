@@ -1,0 +1,90 @@
+---
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+import Icon from '../../../components/admin/Icon.astro';
+import { getAllPages } from '../../../lib/content';
+import { deletePage } from '../../../lib/admin/save';
+import { formatDate } from '../../../lib/utils';
+
+const pages = await getAllPages();
+const deleteId = Astro.url.searchParams.get('delete');
+if (deleteId) {
+  await deletePage(Number(deleteId));
+  return Astro.redirect('/admin/pages?msg=Halaman+berhasil+dihapus');
+}
+const msg = Astro.url.searchParams.get('msg');
+---
+
+<AdminLayout title="Halaman" active="pages">
+  {
+    msg && (
+      <div class="mb-5 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700">
+        {msg}
+      </div>
+    )
+  }
+
+  <div class="mb-5 flex items-center justify-between">
+    <p class="text-sm text-ink-500">{pages.length} halaman statis</p>
+    <a
+      href="/admin/pages/new"
+      class="inline-flex items-center gap-2 rounded-lg bg-brand-400 px-4 py-2.5 text-sm font-bold text-brand-ink hover:bg-brand-300"
+    >
+      <Icon name="plus" class="h-4 w-4" /> Buat Halaman
+    </a>
+  </div>
+
+  <div class="overflow-hidden rounded-xl border border-ink-200 bg-surface">
+    <table class="w-full text-sm">
+      <thead class="bg-ink-50 text-left text-xs uppercase tracking-wider text-ink-500">
+        <tr>
+          <th class="px-4 py-3">Judul</th>
+          <th class="px-4 py-3">Slug</th>
+          <th class="px-4 py-3">Status</th>
+          <th class="px-4 py-3">Diperbarui</th>
+          <th class="px-4 py-3 text-right">Aksi</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-ink-100">
+        {
+          pages.length === 0 && (
+            <tr>
+              <td colspan="5" class="px-4 py-14 text-center text-ink-500">Belum ada halaman.</td>
+            </tr>
+          )
+        }
+        {
+          pages.map((p) => (
+            <tr class="hover:bg-ink-50/60">
+              <td class="px-4 py-3 font-semibold text-ink-900">{p.title}</td>
+              <td class="px-4 py-3 text-ink-500">/{p.slug}</td>
+              <td class="px-4 py-3">
+                <span
+                  class={`rounded px-2 py-0.5 text-xs font-semibold ${
+                    p.status === 'published' ? 'bg-emerald-50 text-emerald-700' : 'bg-ink-100 text-ink-600'
+                  }`}
+                >
+                  {p.status}
+                </span>
+              </td>
+              <td class="px-4 py-3 text-ink-600">{formatDate(p.updatedAt, 'short')}</td>
+              <td class="px-4 py-3">
+                <div class="flex justify-end gap-1">
+                  <a href={`/admin/pages/${p.id}`} class="rounded p-1.5 text-ink-400 hover:text-brand-600">
+                    <Icon name="edit" class="h-4 w-4" />
+                  </a>
+                  <a
+                    href={`/admin/pages?delete=${p.id}`}
+                    data-confirm="Hapus halaman ini?"
+                    class="rounded p-1.5 text-ink-400 hover:text-brand-600"
+                  >
+                    <Icon name="trash" class="h-4 w-4" />
+                  </a>
+                </div>
+              </td>
+            </tr>
+          ))
+        }
+      </tbody>
+    </table>
+  </div>
+</AdminLayout>

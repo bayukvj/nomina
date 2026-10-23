@@ -1,0 +1,122 @@
+{
+  "jakarta": {
+    "ext": {
+      "400": "/fonts/jakarta-00.woff2",
+      "500": "/fonts/jakarta-02.woff2",
+      "600": "/fonts/jakarta-04.woff2",
+      "700": "/fonts/jakarta-06.woff2",
+      "800": "/fonts/jakarta-08.woff2"
+    },
+    "latin": {
+      "400": "/fonts/jakarta-01.woff2",
+      "500": "/fonts/jakarta-03.woff2",
+      "600": "/fonts/jakarta-05.woff2",
+      "700": "/fonts/jakarta-07.woff2",
+      "800": "/fonts/jakarta-09.woff2"
+    }
+  },
+  "inter": {
+    "ext": {
+      "400": "/fonts/inter-00.woff2",
+      "500": "/fonts/inter-02.woff2",
+      "600": "/fonts/inter-04.woff2",
+      "700": "/fonts/inter-06.woff2",
+      "800": "/fonts/inter-08.woff2"
+    },
+    "latin": {
+      "400": "/fonts/inter-01.woff2",
+      "500": "/fonts/inter-03.woff2",
+      "600": "/fonts/inter-05.woff2",
+      "700": "/fonts/inter-07.woff2",
+      "800": "/fonts/inter-09.woff2"
+    }
+  },
+  "poppins": {
+    "ext": {
+      "400": "/fonts/poppins-00.woff2",
+      "500": "/fonts/poppins-02.woff2",
+      "600": "/fonts/poppins-04.woff2",
+      "700": "/fonts/poppins-06.woff2",
+      "800": "/fonts/poppins-08.woff2"
+    },
+    "latin": {
+      "400": "/fonts/poppins-01.woff2",
+      "500": "/fonts/poppins-03.woff2",
+      "600": "/fonts/poppins-05.woff2",
+      "700": "/fonts/poppins-07.woff2",
+      "800": "/fonts/poppins-09.woff2"
+    }
+  },
+  "montserrat": {
+    "ext": {
+      "400": "/fonts/montserrat-00.woff2",
+      "500": "/fonts/montserrat-02.woff2",
+      "600": "/fonts/montserrat-04.woff2",
+      "700": "/fonts/montserrat-06.woff2",
+      "800": "/fonts/montserrat-08.woff2"
+    },
+    "latin": {
+      "400": "/fonts/montserrat-01.woff2",
+      "500": "/fonts/montserrat-03.woff2",
+      "600": "/fonts/montserrat-05.woff2",
+      "700": "/fonts/montserrat-07.woff2",
+      "800": "/fonts/montserrat-09.woff2"
+    }
+  },
+  "nunito": {
+    "ext": {
+      "400": "/fonts/nunito-00.woff2",
+      "500": "/fonts/nunito-02.woff2",
+      "600": "/fonts/nunito-04.woff2",
+      "700": "/fonts/nunito-06.woff2",
+      "800": "/fonts/nunito-08.woff2"
+    },
+    "latin": {
+      "400": "/fonts/nunito-01.woff2",
+      "500": "/fonts/nunito-03.woff2",
+      "600": "/fonts/nunito-05.woff2",
+      "700": "/fonts/nunito-07.woff2",
+      "800": "/fonts/nunito-09.woff2"
+    }
+  },
+  "rubik": {
+    "ext": {
+      "400": "/fonts/rubik-00.woff2",
+      "500": "/fonts/rubik-02.woff2",
+      "600": "/fonts/rubik-04.woff2",
+      "700": "/fonts/rubik-06.woff2",
+      "800": "/fonts/rubik-08.woff2"
+    },
+    "latin": {
+      "400": "/fonts/rubik-01.woff2",
+      "500": "/fonts/rubik-03.woff2",
+      "600": "/fonts/rubik-05.woff2",
+      "700": "/fonts/rubik-07.woff2",
+      "800": "/fonts/rubik-09.woff2"
+    }
+  },
+  "sora": {
+    "ext": {
+      "600": "/fonts/sora-00.woff2",
+      "700": "/fonts/sora-02.woff2",
+      "800": "/fonts/sora-04.woff2"
+    },
+    "latin": {
+      "600": "/fonts/sora-01.woff2",
+      "700": "/fonts/sora-03.woff2",
+      "800": "/fonts/sora-05.woff2"
+    }
+  },
+  "playfair": {
+    "ext": {
+      "600": "/fonts/playfair-00.woff2",
+      "700": "/fonts/playfair-02.woff2",
+      "800": "/fonts/playfair-04.woff2"
+    },
+    "latin": {
+      "600": "/fonts/playfair-01.woff2",
+      "700": "/fonts/playfair-03.woff2",
+      "800": "/fonts/playfair-05.woff2"
+    }
+  }
+}

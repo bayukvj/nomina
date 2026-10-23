@@ -1,0 +1,8 @@
+node_modules/
+dist/
+.astro/
+drizzle/meta/
+public/uploads/
+.env
+*.log
+.DS_Store

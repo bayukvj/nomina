@@ -1,0 +1,411 @@
+---
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+import Field from '../../../components/admin/Field.astro';
+import MediaPicker from '../../../components/admin/MediaPicker.astro';
+import { getSettings, saveSettings, invalidateSettingsCache, resetSettings } from '../../../lib/settings';
+import { getGoogleConfig } from '../../../lib/member-auth';
+import { rebaseMenuUrls } from '../../../lib/admin/save';
+import { getAllMedia } from '../../../lib/content';
+import { fontFamilyOptions, fontHeadingOptions, fontSizeOptions } from '../../../lib/fonts';
+import {
+  settingGroups,
+  settingLabels,
+  settingHelp,
+  settingsDefaults,
+} from '../../../lib/settings-def';
+import { validateCsrfForm, ensureCsrfCookie, getCsrfSecret } from '../../../lib/csrf';
+
+const csrfToken = ensureCsrfCookie(Astro.cookies, getCsrfSecret());
+
+const fieldTypes: Record<string, string> = {
+  siteDescription: 'textarea',
+  schemaOrganization: 'textarea',
+  googleClientSecret: 'password',
+  themeColor: 'color',
+
+  /* pilihan dari daftar — tinggal klik */
+  sidebarPopularRange: 'select',
+  dateFormat: 'select',
+  timeFormat: 'select',
+  fontFamily: 'select',
+  fontHeading: 'select',
+  fontSize: 'select',
+
+  /* toggle on/off — tinggal klik, tanpa mengetik */
+  memberLoginGoogle: 'switch',
+  showReadingTime: 'switch',
+  showAuthorBox: 'switch',
+  showShareButtons: 'switch',
+  showRelatedPosts: 'switch',
+  commentEnabled: 'switch',
+  commentRequireModeration: 'switch',
+  mediaAutoWebp: 'switch',
+  trailingSlash: 'switch',
+  redirectOldUrls: 'switch',
+};
+
+const current = await getSettings();
+const activeGroup = Astro.url.searchParams.get('group') ?? settingGroups[0].key;
+
+let message = '';
+let error = '';
+
+if (Astro.request.method === 'POST') {
+  const form = await validateCsrfForm(Astro.cookies, Astro.request, getCsrfSecret()).catch(() => null);
+  if (!form) {
+    error = 'Permintaan tidak valid (CSRF).';
+  } else {
+    const group = String(form.get('_group') ?? '');
+    const action = String(form.get('_action') ?? 'save');
+    const groupDef = settingGroups.find((g) => g.key === group);
+
+    if (groupDef) {
+      if (action === 'reset') {
+        await resetSettings(groupDef.fields);
+        return Astro.redirect(`/admin/settings?group=${group}&msg=Pengaturan+grup+ini+dipulihkan+ke+default`);
+      }
+
+      const values: Record<string, string> = {};
+      for (const key of groupDef.fields) {
+        const all = form.getAll(key).map((v) => String(v));
+        const isSwitch = fieldTypes[key] === 'switch';
+
+        let value = all.length > 1 ? (all.includes('true') ? 'true' : 'false') : (all[0] ?? '');
+
+        if (!isSwitch && value.trim() === '') continue;
+
+        if (key === 'schemaOrganization' && value.trim()) {
+          try {
+            const parsed = JSON.parse(value);
+            if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+              return Astro.redirect(
+                `/admin/settings?group=${group}&msg=Schema+Organization+harus+berupa+JSON+object&type=error`,
+              );
+            }
+          } catch {
+            return Astro.redirect(
+              `/admin/settings?group=${group}&msg=Schema+Organization+bukan+JSON+yang+valid&type=error`,
+            );
+          }
+        }
+
+        values[key] = value;
+      }
+
+      await saveSettings(values, group);
+      invalidateSettingsCache();
+
+      if (group === 'permalink') {
+        const pairs: [string, string][] = [
+          ['permalinkCategoryBase', 'category'],
+          ['permalinkTagBase', 'tag'],
+          ['permalinkPageBase', 'page'],
+          ['permalinkAuthorBase', 'author'],
+        ];
+        for (const [key] of pairs) {
+          const oldValue = current[key] ?? '';
+          const newValue = values[key] ?? oldValue;
+          if (oldValue !== newValue) {
+            await rebaseMenuUrls(oldValue, newValue);
+          }
+        }
+      }
+
+      const saved = Object.keys(values).length;
+      return Astro.redirect(
+        `/admin/settings?group=${group}&msg=${saved}+pengaturan+disimpan` +
+          (saved < groupDef.fields.length ? '&sisa=1' : ''),
+      );
+    }
+  }
+}
+
+const group = settingGroups.find((g) => g.key === activeGroup) ?? settingGroups[0];
+const msg = Astro.url.searchParams.get('msg');
+const msgType = Astro.url.searchParams.get('type');
+if (msg) message = msg;
+
+const longFields = ['siteDescription', 'schemaOrganization', 'mediaAllowedTypes'];
+const fieldOptions: Record<string, { value: string; label: string }[]> = {
+  sidebarPopularRange: [
+    { value: 'all', label: 'Semua (akumulasi tayangan)' },
+    { value: 'day', label: '24 Jam Terakhir' },
+    { value: 'week', label: '7 Hari Terakhir' },
+    { value: 'month', label: '30 Hari Terakhir' },
+  ],
+  dateFormat: [
+    { value: 'long', label: 'Panjang — Senin, 1 Januari 2026' },
+    { value: 'short', label: 'Pendek — 1 Jan 2026' },
+  ],
+  timeFormat: [
+    { value: '24', label: '24 Jam (19.45)' },
+    { value: '12', label: '12 Jam (7.45 PM)' },
+  ],
+  fontFamily: fontFamilyOptions,
+  fontHeading: fontHeadingOptions,
+  fontSize: fontSizeOptions,
+};
+const fields = group.fields.map((key) => {
+  const value = current[key] ?? (settingsDefaults as Record<string, string>)[key] ?? '';
+  const defaultValue = (settingsDefaults as Record<string, string>)[key] ?? '';
+  return {
+    key,
+    label: settingLabels[key] ?? key,
+    value,
+    help: settingHelp[key] ?? '',
+    type: fieldTypes[key] ?? 'text',
+    isLong: longFields.includes(key),
+    customized: value !== defaultValue,
+  };
+});
+
+/* status konfigurasi login Google */
+const googleConfig = await getGoogleConfig();
+const siteUrl = (process.env.SITE_URL ?? 'http://localhost:4321').replace(/\/$/, '');
+
+/* field gambar yang memakai Media Picker (pustaka media + unggah lokal) */
+const mediaFields: string[] = ['ogImage', 'siteLogo', 'favicon'];
+const mediaList = mediaFields.some((k) => (group.fields as string[]).includes(k))
+  ? await getAllMedia()
+  : [];
+const mediaImages = mediaList.map((m) => ({
+  id: m.id,
+  url: m.url,
+  filename: m.originalName,
+  mimeType: m.mimeType,
+}));
+---
+
+<AdminLayout title="Pengaturan" active="settings">
+  {
+    message && (
+      <div
+        class={`mb-5 rounded-lg border px-4 py-3 text-sm font-medium ${
+          msgType === 'error'
+            ? 'border-brand-200 bg-brand-50 text-brand-700'
+            : 'border-emerald-200 bg-emerald-50 text-emerald-700'
+        }`}
+      >
+        {message}
+      </div>
+    )
+  }
+
+  <div class="mb-5 rounded-xl border border-ink-200 bg-surface p-5">
+    <details open={activeGroup === settingGroups[0].key}>
+      <summary
+        class="flex cursor-pointer list-none items-center gap-2 text-sm font-extrabold text-ink-900"
+      >
+        <span class="flex h-6 w-6 items-center justify-center rounded-lg bg-brand-100 text-xs text-brand-700">
+          ?
+        </span>
+        Panduan pengisian pengaturan
+        <span class="ml-auto text-xs font-semibold text-ink-500">klik untuk buka/tutup</span>
+      </summary>
+
+      <div class="mt-4 grid gap-4 text-sm leading-relaxed text-ink-600 md:grid-cols-2">
+        <div>
+          <p class="mb-1 font-bold text-ink-800">Aturan pengisian</p>
+          <ul class="list-disc space-y-1 pl-5">
+            <li>
+              <strong class="text-ink-800">Cukup isi yang perlu diubah.</strong> Field yang
+              dikosongkan tidak akan menimpa nilai yang sudah tersimpan.
+            </li>
+            <li>
+              Nilai bawaan dipakai otomatis untuk field yang belum pernah diisi — tidak perlu
+              mengisi semuanya.
+            </li>
+            <li>
+              Badge <span class="chip bg-brand-100 text-brand-700">Diubah dari default</span>
+              menandakan field yang nilainya berbeda dari bawaan.
+            </li>
+            <li>
+              Tombol <strong class="text-ink-800">Pulihkan Default</strong> mengembalikan seluruh
+              grup ke nilai bawaan.
+            </li>
+            <li>Simpan per grup agar perubahan tidak saling tertimpa.</li>
+          </ul>
+        </div>
+
+        <div>
+          <p class="mb-1 font-bold text-ink-800">Di mana setiap grup dipakai</p>
+          <ul class="list-disc space-y-1 pl-5">
+            <li>
+              <strong class="text-ink-800">Identitas Situs</strong> — logo, header, footer, dan
+              meta tag bawaan.
+            </li>
+            <li>
+              <strong class="text-ink-800">Media Sosial</strong> — ikon sosial di footer.
+            </li>
+            <li>
+              <strong class="text-ink-800">SEO &amp; Analytics</strong> — judul, deskripsi, Open
+              Graph, sitemap, robots.txt, dan analitik.
+            </li>
+            <li>
+              <strong class="text-ink-800">Permalink &amp; URL</strong> — struktur URL artikel,
+              kategori, tag, halaman, dan penulis.
+            </li>
+            <li>
+              <strong class="text-ink-800">Tampilan &amp; Konten</strong> — beranda, widget
+              Populer, komentar, dan format tanggal.
+            </li>
+            <li>
+              <strong class="text-ink-800">Media &amp; Unggahan</strong> — batas ukuran dan tipe
+              berkas yang boleh diunggah.
+            </li>
+            <li>
+              <strong class="text-ink-800">Login Member</strong> — kredensial Google OAuth untuk
+              daftar/masuk member.
+            </li>
+          </ul>
+        </div>
+      </div>
+
+      <p class="mt-4 rounded-lg border border-brand-200 bg-brand-50 px-4 py-3 text-xs text-brand-800">
+        <strong>Tips:</strong> setiap field memiliki keterangan singkat di bawahnya yang menjelaskan
+        format, contoh nilai, dan kapan perlu diisi. Arahkan kursor ke ikon
+        <span class="font-bold">?</span> atau buka grup terkait untuk melihat panduannya.
+      </p>
+    </details>
+  </div>
+
+  <div class="grid gap-6 lg:grid-cols-[240px_1fr]">
+    <nav class="space-y-1">
+      {
+        settingGroups.map((g) => (
+          <a
+            href={`/admin/settings?group=${g.key}`}
+            class={`block rounded-lg px-3 py-2.5 text-sm font-semibold ${
+              g.key === group.key
+                ? 'bg-brand-400 text-brand-ink'
+                : 'border border-ink-200 bg-surface text-ink-700 hover:border-brand-400'
+            }`}
+          >
+            {g.label}
+          </a>
+        ))
+      }
+    </nav>
+
+    <form method="post" class="rounded-xl border border-ink-200 bg-surface p-6">
+      <input type="hidden" name="_group" value={group.key} />
+      <input type="hidden" name="_csrf" value={csrfToken} />
+
+      <div class="mb-6">
+        <h2 class="text-lg font-black text-ink-900">{group.label}</h2>
+        <p class="text-sm text-ink-500">{group.description}</p>
+      </div>
+
+      {
+        group.key === 'member' && (
+          <div class="mb-6 space-y-3 rounded-xl border border-ink-200 bg-ink-50 p-4">
+            <div class="flex flex-wrap items-center gap-3">
+              <span
+                class={`chip ${
+                  googleConfig.enabled && googleConfig.clientId && googleConfig.clientSecret
+                    ? 'bg-mint-100 text-mint-700'
+                    : 'bg-sun-100 text-sun-700'
+                }`}
+              >
+                {googleConfig.enabled && googleConfig.clientId && googleConfig.clientSecret
+                  ? 'Aktif — login Google siap dipakai'
+                  : googleConfig.enabled
+                    ? 'Belum lengkap — Client ID / Secret masih kosong'
+                    : 'Nonaktif'}
+              </span>
+              <a
+                href="/masuk"
+                target="_blank"
+                class="text-xs font-semibold text-brand-600 hover:text-brand-700"
+              >
+                Coba halaman login member ↗
+              </a>
+            </div>
+
+            <div class="text-xs leading-relaxed text-ink-600">
+              <p class="font-bold text-ink-800">Langkah setup di Google Cloud Console:</p>
+              <ol class="mt-1 list-decimal space-y-0.5 pl-5">
+                <li>Buka APIs &amp; Services → Credentials → Create Credentials → OAuth client ID</li>
+                <li>
+                  Tambahkan Authorized redirect URI:
+                  <code class="rounded bg-ink-200 px-1.5 py-0.5 text-[11px] break-all">
+                    {googleConfig.redirectUri}
+                  </code>
+                </li>
+                <li>Salin Client ID &amp; Client Secret ke form di bawah, lalu Simpan.</li>
+              </ol>
+              <p class="mt-2 text-ink-500">
+                Kredensial akan dipakai otomatis. Nilai dari file <code>.env</code> dipakai
+                sebagai cadangan bila form ini masih kosong.
+              </p>
+            </div>
+          </div>
+        )
+      }
+
+      <div class="grid gap-5 md:grid-cols-2">
+        {
+          fields.map((f) => (
+            <div class={f.isLong ? 'md:col-span-2' : ''}>
+              {mediaFields.includes(f.key) ? (
+                <MediaPicker
+                  name={f.key}
+                  label={f.label}
+                  value={f.value}
+                  media={mediaImages}
+                  help={f.help}
+                  mode="url"
+                />
+              ) : (
+                <Field
+                  name={f.key}
+                  label={f.label}
+                  type={f.type as 'text' | 'textarea' | 'select' | 'switch' | 'password' | 'color'}
+                  rows={f.isLong ? 4 : undefined}
+                  value={f.value}
+                  help={f.help}
+                  options={fieldOptions[f.key] ?? []}
+                />
+              )}
+              {f.customized && (
+                <span class="mt-1 inline-block rounded-full bg-brand-100 px-2 py-0.5 text-[10px] font-bold text-brand-700">
+                  Diubah dari default
+                </span>
+              )}
+            </div>
+          ))
+        }
+      </div>
+
+      <p class="mt-5 rounded-xl border border-ink-200 bg-ink-50 px-4 py-3 text-xs leading-relaxed text-ink-600">
+        <strong class="text-ink-800">Cukup isi yang perlu diubah.</strong> Field yang dikosongkan
+        tidak akan menimpa nilai yang sudah tersimpan, dan nilai bawaan tetap dipakai bila belum
+        pernah diatur. Tombol “Pulihkan Default” mengembalikan seluruh grup ini ke nilai bawaan.
+      </p>
+
+      <div class="mt-5 flex flex-wrap gap-2 border-t border-ink-100 pt-5">
+        <button
+          type="submit"
+          class="rounded-lg bg-brand-400 px-5 py-2.5 text-sm font-bold text-brand-ink hover:bg-brand-300"
+        >
+          Simpan Pengaturan
+        </button>
+        <a
+          href={`/admin/settings?group=${group.key}`}
+          class="rounded-lg border border-ink-200 px-5 py-2.5 text-sm font-semibold text-ink-700 hover:border-brand-500"
+        >
+          Muat Ulang
+        </a>
+        <button
+          type="submit"
+          name="_action"
+          value="reset"
+          data-confirm="Pulihkan seluruh pengaturan grup ini ke nilai default?"
+          class="rounded-lg border border-ink-200 px-5 py-2.5 text-sm font-semibold text-ink-500 hover:border-coral-300 hover:text-coral-600"
+        >
+          Pulihkan Default
+        </button>
+      </div>
+    </form>
+  </div>
+</AdminLayout>

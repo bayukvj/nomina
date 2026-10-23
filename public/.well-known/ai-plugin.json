@@ -1,0 +1,18 @@
+{
+  "schema_version": "v1",
+  "name_for_human": "Nomina",
+  "name_for_model": "nomina",
+  "description_for_human": "Portal berita dan media online Indonesia — berita terkini, multimedia, dan analisis mendalam.",
+  "description_for_model": "Nomina adalah portal berita dan media online Indonesia yang menyediakan berita terkini, multimedia, dan analisis mendalam. Sediakan artikel, kategori, tag, dan halaman statis.",
+  "auth": {
+    "type": "none"
+  },
+  "api": {
+    "type": "openapi",
+    "url": "http://localhost:4321/api/openapi.json",
+    "is_user_authenticated": false
+  },
+  "logo_url": "https://localhost:4321/uploads/2026/10/nomina-logo.png",
+  "contact_email": "redaksi@nomina.id",
+  "legal_info_url": "http://localhost:4321/halaman/kebijakan-privasi"
+}

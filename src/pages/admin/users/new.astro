@@ -1,0 +1,36 @@
+---
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+import UserForm from '../../../components/admin/UserForm.astro';
+import { saveUser } from '../../../lib/admin/save';
+import { getAllMedia } from '../../../lib/content';
+import { hashPassword } from '../../../lib/auth';
+import { validateCsrfForm, ensureCsrfCookie, getCsrfSecret } from '../../../lib/csrf';
+
+const csrfToken = ensureCsrfCookie(Astro.cookies, getCsrfSecret());
+let error = '';
+
+if (Astro.request.method === 'POST') {
+  const form = await validateCsrfForm(Astro.cookies, Astro.request, getCsrfSecret()).catch(() => null);
+  if (!form) {
+    error = 'Permintaan tidak valid (CSRF).';
+  } else {
+    const result = await saveUser(form, undefined, hashPassword);
+    if (result.error) {
+      error = result.error;
+    } else {
+      return Astro.redirect(`/admin/users/${result.id}?msg=Pengguna+berhasil+ditambahkan`);
+    }
+  }
+}
+
+const mediaItems = (await getAllMedia()).map((m) => ({
+  id: m.id,
+  url: m.url,
+  filename: m.originalName,
+  mimeType: m.mimeType,
+}));
+---
+
+<AdminLayout title="Tambah Pengguna" active="users">
+  <UserForm error={error} isNew media={mediaItems} csrfToken={csrfToken} />
+</AdminLayout>

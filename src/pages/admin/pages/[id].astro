@@ -1,0 +1,42 @@
+---
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+import PageForm from '../../../components/admin/PageForm.astro';
+import { getPageById, getAllMedia } from '../../../lib/content';
+import { savePage } from '../../../lib/admin/save';
+import { validateCsrfForm, ensureCsrfCookie, getCsrfSecret } from '../../../lib/csrf';
+
+const id = Number(Astro.params.id);
+const page = await getPageById(id);
+const csrfToken = ensureCsrfCookie(Astro.cookies, getCsrfSecret());
+let error = '';
+
+if (Astro.request.method === 'POST') {
+  const form = await validateCsrfForm(Astro.cookies, Astro.request, getCsrfSecret()).catch(() => null);
+  if (!form) {
+    error = 'Permintaan tidak valid (CSRF).';
+  } else {
+    const result = await savePage(form, id);
+    if (result.error) {
+      error = result.error;
+    } else {
+      return Astro.redirect(`/admin/pages/${id}?msg=Halaman+berhasil+diperbarui`);
+    }
+  }
+}
+
+const media = await getAllMedia();
+const mediaOptions = media
+  .filter((m) => m.mimeType?.startsWith('image/'))
+  .map((m) => ({ id: m.id, url: m.url, filename: m.originalName }));
+const msg = Astro.url.searchParams.get('msg');
+---
+<AdminLayout title="Edit Halaman" active="pages">
+  {
+    msg && (
+      <div class="mb-5 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700">
+        {msg}
+      </div>
+    )
+  }
+  <PageForm page={page} mediaOptions={mediaOptions} error={error} csrfToken={csrfToken} />
+</AdminLayout>

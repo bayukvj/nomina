@@ -1,0 +1,45 @@
+---
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+import CategoryForm from '../../../components/admin/CategoryForm.astro';
+import { getCategoryById, getAllCategories } from '../../../lib/content';
+import { saveCategory } from '../../../lib/admin/save';
+import { validateCsrfForm, ensureCsrfCookie, getCsrfSecret } from '../../../lib/csrf';
+
+const id = Number(Astro.params.id);
+const category = await getCategoryById(id);
+
+if (!category) {
+  return Astro.redirect('/admin/categories?msg=Kategori+tidak+ditemukan&type=error');
+}
+
+const csrfToken = ensureCsrfCookie(Astro.cookies, getCsrfSecret());
+let error = '';
+
+if (Astro.request.method === 'POST') {
+  const form = await validateCsrfForm(Astro.cookies, Astro.request, getCsrfSecret()).catch(() => null);
+  if (!form) {
+    error = 'Permintaan tidak valid (CSRF).';
+  } else {
+    const result = await saveCategory(form, id);
+    if (result.error) {
+      error = result.error;
+    } else {
+      return Astro.redirect(`/admin/categories/${id}?msg=Kategori+berhasil+diperbarui`);
+    }
+  }
+}
+
+const categories = await getAllCategories();
+const msg = Astro.url.searchParams.get('msg');
+---
+
+<AdminLayout title="Edit Kategori" active="categories">
+  {
+    msg && (
+      <div class="mb-5 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700">
+        {msg}
+      </div>
+    )
+  }
+  <CategoryForm category={category} categories={categories} error={error} csrfToken={csrfToken} />
+</AdminLayout>

@@ -1,0 +1,268 @@
+---
+import { getSettings } from '../lib/settings';
+import { getMenu } from '../lib/content';
+import ThemeToggle from './ThemeToggle.astro';
+
+const settings = await getSettings();
+const menu = await getMenu('primary');
+const member = Astro.locals.member;
+---
+
+<header class="sticky top-0 z-40 border-b border-ink-200 bg-surface/85 backdrop-blur-xl">
+  <div class="container-site flex h-16 items-center gap-3 sm:h-20 sm:gap-6">
+    <!-- LOGO -->
+    <a href="/" class="group flex shrink-0 items-center gap-2.5">
+      {
+        settings.siteLogo ? (
+            <img src={settings.siteLogo} alt="" aria-hidden="true" width={40} height={40} loading="lazy" decoding="async" class="h-10 w-auto" />
+        ) : (
+          <span class="flex h-10 w-10 items-center justify-center rounded-2xl bg-brand-400 text-lg font-black text-brand-ink transition group-hover:-rotate-6 sm:h-11 sm:w-11 sm:text-xl">
+            {settings.siteName.charAt(0)}
+          </span>
+        )
+      }
+      <span class="font-display text-xl font-extrabold leading-none tracking-tight text-ink-900 sm:text-2xl">
+        {settings.siteName}
+      </span>
+    </a>
+    <form action="/cari" method="get" class="hidden min-w-0 flex-1 md:block">
+      <label class="relative block max-w-xl">
+        <span class="sr-only">Cari berita</span>
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          class="pointer-events-none absolute top-1/2 left-4 h-4 w-4 -translate-y-1/2 text-ink-400"
+        >
+          <circle cx="11" cy="11" r="7"></circle>
+          <path d="m20 20-3.5-3.5"></path>
+        </svg>
+        <input
+          type="search"
+          name="q"
+          placeholder="Cari berita, topik, atau tag…"
+          class="w-full rounded-full border border-ink-200 bg-ink-50 py-2.5 pr-4 pl-11 text-sm outline-none transition placeholder:text-ink-400 focus:border-brand-400 focus:bg-surface focus:ring-4 focus:ring-brand-100"
+        />
+      </label>
+    </form>
+    <nav class="ml-auto hidden items-center gap-0.5 lg:flex" aria-label="Navigasi utama">
+      <a
+        href="/"
+        class="rounded-full bg-night-900 px-4 py-2 text-sm font-bold text-white transition hover:bg-brand-400 hover:text-brand-ink"
+      >
+        Beranda
+      </a>
+      {
+        (menu?.items ?? []).map((item) => (
+          <a
+            href={item.url}
+            target={item.target === '_blank' ? '_blank' : undefined}
+            rel={item.target === '_blank' ? 'noopener' : undefined}
+            class="rounded-full px-3.5 py-2 text-sm font-semibold whitespace-nowrap text-ink-600 transition hover:bg-brand-400 hover:text-brand-ink"
+          >
+            {item.label}
+          </a>
+        ))
+      }
+    </nav>
+    <div class="ml-auto flex items-center gap-2">
+      {
+        member && (
+          <a
+            href="/akun"
+            class="hidden items-center gap-2 rounded-full border border-ink-200 bg-surface py-1.5 pr-4 pl-1.5 transition hover:border-brand-400 lg:flex"
+          >
+            <span class="flex h-7 w-7 items-center justify-center overflow-hidden rounded-full bg-brand-400 text-xs font-black text-brand-ink">
+                {member.avatar ? (
+                  <img src={member.avatar} alt={member.name} width={36} height={36} loading="lazy" decoding="async" class="h-full w-full object-cover" />
+                ) : (
+                member.name.charAt(0)
+              )}
+            </span>
+            <span class="max-w-24 truncate text-sm font-bold text-ink-800">{member.name}</span>
+          </a>
+        )
+      }
+      {
+        !member && (
+          <div class="hidden items-center gap-2 lg:flex">
+            <a
+              href="/masuk"
+              class="rounded-full border border-ink-200 px-4 py-2 text-sm font-bold text-ink-700 transition hover:border-brand-400 hover:text-brand-600"
+            >
+              Masuk
+            </a>
+            <a
+              href="/daftar"
+              class="rounded-full bg-brand-400 px-4 py-2 text-sm font-extrabold text-brand-ink shadow-soft transition hover:opacity-90"
+            >
+              Daftar
+            </a>
+          </div>
+        )
+      }
+
+      <ThemeToggle class="hidden lg:flex" />
+      <div class="flex items-center gap-1.5 md:hidden">
+        <button
+          type="button"
+          id="mobile-search-toggle"
+          class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-ink-200 bg-surface text-ink-700 transition hover:border-brand-400 hover:text-brand-600"
+          aria-label="Buka pencarian"
+          aria-expanded="false"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-5 w-5">
+            <circle cx="11" cy="11" r="7"></circle>
+            <path d="m20 20-3.5-3.5"></path>
+          </svg>
+        </button>
+        <ThemeToggle class="md:hidden" />
+        <button
+          type="button"
+          id="mobile-menu-toggle"
+          class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-night-900 text-white transition hover:bg-brand-400 hover:text-brand-ink"
+          aria-label="Buka menu"
+          aria-expanded="false"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" class="h-5 w-5">
+            <path d="M4 7h16M4 12h16M4 17h16" class="menu-icon-open"></path>
+            <path d="M6 6l12 12M18 6L6 18" class="menu-icon-close hidden"></path>
+          </svg>
+        </button>
+      </div>
+    </div>
+  </div>
+  <div id="mobile-panel" class="hidden border-t border-ink-100 bg-surface md:hidden">
+    <div class="container-site space-y-4 py-4">
+      <div class="flex items-center gap-2">
+        <form action="/cari" method="get" class="relative flex-1">
+          <span class="sr-only">Cari berita</span>
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            class="pointer-events-none absolute top-1/2 left-4 h-4 w-4 -translate-y-1/2 text-ink-400"
+          >
+            <circle cx="11" cy="11" r="7"></circle>
+            <path d="m20 20-3.5-3.5"></path>
+          </svg>
+          <input
+            type="search"
+            name="q"
+            placeholder="Cari berita, topik, atau tag…"
+            class="w-full rounded-full border border-ink-200 bg-ink-50 py-3 pr-4 pl-11 text-sm outline-none transition focus:border-brand-400 focus:bg-surface focus:ring-4 focus:ring-brand-100"
+          />
+        </form>
+      </div>
+
+      <div id="mobile-menu-content" class="space-y-4">
+        <nav class="grid grid-cols-2 gap-2" aria-label="Navigasi mobile">
+          <a
+            href="/"
+            class="rounded-2xl bg-night-900 px-4 py-3 text-center text-sm font-bold text-white transition hover:bg-brand-400 hover:text-brand-ink"
+          >
+            Beranda
+          </a>
+          {
+            (menu?.items ?? []).map((item) => (
+              <a
+                href={item.url}
+                target={item.target === '_blank' ? '_blank' : undefined}
+                rel={item.target === '_blank' ? 'noopener' : undefined}
+                class="rounded-2xl border border-ink-200 px-4 py-3 text-center text-sm font-semibold text-ink-700 transition hover:border-brand-400 hover:bg-brand-400 hover:text-brand-ink"
+              >
+                {item.label}
+              </a>
+            ))
+          }
+        </nav>
+
+        <div class="grid grid-cols-2 gap-2">
+          {
+            member && (
+              <a
+                href="/akun"
+                class="col-span-2 rounded-2xl border border-ink-200 bg-surface px-4 py-3 text-center text-sm font-bold text-ink-700 transition hover:border-brand-400"
+              >
+                Akun Saya
+              </a>
+          )
+        }
+        {
+          !member && (
+            <div class="col-span-2 grid grid-cols-2 gap-2">
+              <a
+                href="/masuk"
+                class="rounded-2xl border border-ink-200 bg-surface px-4 py-3 text-center text-sm font-bold text-ink-700 transition hover:border-brand-400 hover:text-brand-600"
+              >
+                Masuk
+              </a>
+              <a
+                href="/daftar"
+                class="rounded-2xl bg-brand-400 px-4 py-3 text-center text-sm font-extrabold text-brand-ink"
+              >
+                Daftar
+              </a>
+            </div>
+          )
+        }
+        </div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<script is:inline>
+  (function () {
+    const panel = document.getElementById('mobile-panel');
+    const menuContent = document.getElementById('mobile-menu-content');
+    const menuBtn = document.getElementById('mobile-menu-toggle');
+    const searchBtn = document.getElementById('mobile-search-toggle');
+    const openIcon = document.querySelector('.menu-icon-open');
+    const closeIcon = document.querySelector('.menu-icon-close');
+    const searchInput = panel?.querySelector('input[name="q"]');
+
+    function closePanel() {
+      panel?.classList.add('hidden');
+      menuContent?.classList.remove('hidden');
+      openIcon?.classList.remove('hidden');
+      closeIcon?.classList.add('hidden');
+      menuBtn?.setAttribute('aria-expanded', 'false');
+      searchBtn?.setAttribute('aria-expanded', 'false');
+    }
+
+    function openPanel(mode) {
+      const isMenu = mode === 'menu';
+      panel?.classList.remove('hidden');
+      menuContent?.classList.toggle('hidden', !isMenu);
+      openIcon?.classList.toggle('hidden', isMenu);
+      closeIcon?.classList.toggle('hidden', !isMenu);
+      menuBtn?.setAttribute('aria-expanded', String(isMenu));
+      searchBtn?.setAttribute('aria-expanded', String(!isMenu));
+      if (!isMenu) {
+        setTimeout(function () {
+          searchInput?.focus();
+        }, 60);
+      }
+    }
+
+    menuBtn?.addEventListener('click', function () {
+      const isOpen = this.getAttribute('aria-expanded') === 'true';
+      if (isOpen) closePanel();
+      else openPanel('menu');
+    });
+
+    searchBtn?.addEventListener('click', function () {
+      const isOpen = this.getAttribute('aria-expanded') === 'true';
+      if (isOpen) closePanel();
+      else openPanel('search');
+    });
+
+
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') closePanel();
+    });
+  })();
+</script>

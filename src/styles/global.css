@@ -1,0 +1,437 @@
+@import 'tailwindcss';
+
+/* varian dark berbasis kelas (dikendalikan <html class="dark">) */
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  /* ---- brand: kuning ---- */
+  --color-brand-50: #fffef2;
+  --color-brand-100: #fefce8;
+  --color-brand-200: #fef08a;
+  --color-brand-300: #fde047;
+  --color-brand-400: #facc15;
+  --color-brand-500: #eab308;
+  --color-brand-600: #ca8a04;
+  --color-brand-700: #a16207;
+  --color-brand-800: #854d0e;
+  --color-brand-900: #713f12;
+
+  /* ---- grape: netralabu (smoke) ---- */
+  --color-grape-50: #fafafa;
+  --color-grape-100: #f4f4f5;
+  --color-grape-200: #e4e4e7;
+  --color-grape-300: #d4d4d8;
+  --color-grape-400: #a1a1aa;
+  --color-grape-500: #71717a;
+  --color-grape-600: #52525b;
+  --color-grape-700: #3f3f46;
+  --color-grape-800: #27272a;
+  --color-grape-900: #18181b;
+
+  /* ---- mint: kuning muda ---- */
+  --color-mint-50: #fffbeb;
+  --color-mint-100: #fef3c7;
+  --color-mint-200: #fde68a;
+  --color-mint-300: #fcd34d;
+  --color-mint-400: #fbbf24;
+  --color-mint-500: #f59e0b;
+  --color-mint-600: #d97706;
+  --color-mint-700: #b45309;
+  --color-mint-800: #92400e;
+  --color-mint-900: #78350f;
+
+  /* ---- coral: hitam ---- */
+  --color-coral-50: #fafafa;
+  --color-coral-100: #f4f4f4;
+  --color-coral-200: #e5e5e5;
+  --color-coral-300: #d4d4d4;
+  --color-coral-400: #a3a3a3;
+  --color-coral-500: #737373;
+  --color-coral-600: #525252;
+  --color-coral-700: #404040;
+  --color-coral-800: #262626;
+  --color-coral-900: #0a0a0a;
+
+  /* ---- sun: emas ---- */
+  --color-sun-50: #fffbe6;
+  --color-sun-100: #fff3b0;
+  --color-sun-200: #ffe680;
+  --color-sun-300: #ffd951;
+  --color-sun-400: #ffcc00;
+  --color-sun-500: #f5b700;
+  --color-sun-600: #d89c00;
+  --color-sun-700: #a87700;
+  --color-sun-800: #7a5500;
+  --color-sun-900: #523700;
+
+  /* ---- sky: krem/putih ---- */
+  --color-sky-50: #ffffff;
+  --color-sky-100: #fafafa;
+  --color-sky-200: #f5f5f5;
+  --color-sky-300: #ebebeb;
+  --color-sky-400: #d6d6d6;
+  --color-sky-500: #a8a8a8;
+  --color-sky-600: #7a7a7a;
+  --color-sky-700: #525252;
+  --color-sky-800: #262626;
+  --color-sky-900: #0a0a0a;
+
+  /* ---- ink: hitam ---- */
+  --color-ink-50: #fafafa;
+  --color-ink-100: #f5f5f5;
+  --color-ink-200: #e5e5e5;
+  --color-ink-300: #d4d4d4;
+  --color-ink-400: #a3a3a3;
+  --color-ink-500: #737373;
+  --color-ink-600: #525252;
+  --color-ink-700: #404040;
+  --color-ink-800: #262626;
+  --color-ink-900: #0a0a0a;
+
+  /* ---- token semantik (dibalik pada mode gelap) ---- */
+  --color-surface: #ffffff;
+  --color-night-900: #0a0a0a;
+  --color-night-800: #262626;
+  --color-brand-ink: #0a0a0a;
+  --color-soft-yellow: #fffef2;
+  --color-glass: rgb(255 255 255 / 0.85);
+  /* teks di atas latar gelap: tetap terang di kedua mode */
+  --color-night-fg: #d4d4d4;
+  --color-night-fg-muted: #a3a3a3;
+  /* teks di atas latar putih (tombol Google): tetap gelap di kedua mode */
+  --color-on-white: #1f1f1f;
+
+  --font-sans: 'Plus Jakarta Sans', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-display: 'Sora', 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
+
+  --radius-4xl: 2rem;
+
+  /* skala radius lebih membulat & modern */
+  --radius-sm: 0.5rem;
+  --radius-md: 0.75rem;
+  --radius-lg: 1rem;
+  --radius-xl: 1.25rem;
+  --radius-2xl: 1.75rem;
+  --radius-3xl: 2.25rem;
+  --radius-4xl: 2.5rem;
+
+  --shadow-soft: 0 10px 40px -12px rgb(10 10 10 / 0.12);
+  --shadow-pop: 0 18px 45px -15px rgb(10 10 10 / 0.45);
+}
+
+@layer base {
+  /* ============ MODE GELAP ============
+     Semua warna dibalik lewat pergantian token CSS,
+     sehingga tidak perlu class `dark:` di tiap komponen. */
+  .dark {
+    --color-surface: #141417;
+    --color-night-900: #1b1b1f;
+    --color-night-800: #2a2a30;
+    --color-brand-ink: #0a0a0a;
+    --color-soft-yellow: #17150f;
+    --color-glass: rgb(16 16 19 / 0.82);
+    --color-night-fg: #e4e4e4;
+    --color-night-fg-muted: #a1a1aa;
+
+    --color-ink-50: #0b0b0d;
+    --color-ink-100: #141417;
+    --color-ink-200: #26262b;
+    --color-ink-300: #35353b;
+    --color-ink-400: #8b8b93;
+    --color-ink-500: #a9a9b2;
+    --color-ink-600: #c6c6ce;
+    --color-ink-700: #dedee4;
+    --color-ink-800: #efeff2;
+    --color-ink-900: #fafafa;
+
+    /* skala brand (50–900) untuk mode gelap di-inject dari pengaturan
+       "Warna Tema" — lihat src/lib/theme.ts */
+
+    /* hijau (pesan sukses) */
+    --color-emerald-50: #0c1f16;
+    --color-emerald-200: #14532d;
+    --color-emerald-700: #6ee7b7;
+
+    /* abu-abu netral ikut terbalik */
+    --color-grape-50: #0b0b0d;
+    --color-grape-100: #141417;
+    --color-grape-200: #26262b;
+    --color-grape-300: #35353b;
+    --color-grape-400: #8b8b93;
+    --color-grape-500: #a9a9b2;
+    --color-grape-600: #c6c6ce;
+    --color-grape-700: #dedee4;
+    --color-grape-800: #efeff2;
+    --color-grape-900: #fafafa;
+
+    --color-coral-50: #0b0b0d;
+    --color-coral-100: #141417;
+    --color-coral-200: #26262b;
+    --color-coral-300: #35353b;
+    --color-coral-400: #8b8b93;
+    --color-coral-500: #a9a9b2;
+    --color-coral-600: #c6c6ce;
+    --color-coral-700: #dedee4;
+    --color-coral-800: #efeff2;
+    --color-coral-900: #fafafa;
+
+    /* emas: latar gelap, teks jadi emas terang */
+    --color-mint-50: #0b0b0d;
+    --color-mint-100: #141417;
+    --color-mint-200: #26262b;
+    --color-mint-300: #35353b;
+    --color-mint-400: #fbbf24;
+    --color-mint-500: #fcd34d;
+    --color-mint-600: #fbbf24;
+    --color-mint-700: #fde047;
+    --color-mint-800: #fef08a;
+    --color-mint-900: #fefce8;
+
+    --color-sun-50: #0b0b0d;
+    --color-sun-100: #141417;
+    --color-sun-200: #26262b;
+    --color-sun-300: #35353b;
+    --color-sun-400: #ffcc00;
+    --color-sun-500: #ffd951;
+    --color-sun-600: #f5b700;
+    --color-sun-700: #fde047;
+    --color-sun-800: #fef08a;
+    --color-sun-900: #fefce8;
+
+    --color-sky-50: #0b0b0d;
+    --color-sky-100: #141417;
+    --color-sky-200: #26262b;
+    --color-sky-300: #35353b;
+    --color-sky-400: #8b8b93;
+    --color-sky-500: #a9a9b2;
+    --color-sky-600: #c6c6ce;
+    --color-sky-700: #dedee4;
+    --color-sky-800: #efeff2;
+    --color-sky-900: #fafafa;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+  body {
+    @apply bg-ink-50 text-ink-800 antialiased;
+  }
+  h1,
+  h2,
+  h3,
+  h4 {
+    /* warna diwarisi dari induk, agar judul di dalam panel gelap ikut terang */
+    color: inherit;
+  }
+  a {
+    @apply transition-colors;
+  }
+  ::selection {
+    @apply bg-brand-400 text-brand-ink;
+  }
+  .container-site {
+    @apply mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8;
+  }
+
+  /* ---- rich article typography ---- */
+  .prose-media {
+    @apply text-[17px] leading-[1.85] text-ink-700;
+  }
+  .prose-media p {
+    @apply mb-5;
+  }
+  .prose-media h2 {
+    @apply mb-3 mt-8 text-2xl font-extrabold tracking-tight;
+  }
+  .prose-media h3 {
+    @apply mb-2 mt-6 text-xl font-bold;
+  }
+  .prose-media ul {
+    @apply mb-5 list-disc pl-6;
+  }
+  .prose-media ol {
+    @apply mb-5 list-decimal pl-6;
+  }
+  .prose-media li {
+    @apply mb-1.5;
+  }
+  .prose-media blockquote {
+    @apply my-6 rounded-2xl border-l-4 border-brand-400 bg-gradient-to-r from-brand-100 to-surface px-5 py-4 font-medium italic text-ink-700;
+  }
+  .prose-media img {
+    @apply my-6 rounded-2xl shadow-soft;
+  }
+  .prose-media figure {
+    @apply my-6;
+  }
+  .prose-media figure img {
+    @apply my-0 w-full;
+  }
+  .prose-media figcaption {
+    @apply mt-2.5 text-center text-xs leading-relaxed text-ink-500;
+  }
+  .prose-media a {
+    @apply font-semibold text-brand-700 underline decoration-brand-300 decoration-2 underline-offset-2 hover:text-ink-900;
+  }
+  .prose-media pre {
+    @apply my-6 overflow-x-auto rounded-2xl bg-night-900 p-4 text-sm text-ink-100;
+  }
+  .prose-media code {
+    @apply rounded bg-brand-100 px-1.5 py-0.5 text-[0.9em] font-medium text-brand-800;
+  }
+  .prose-media pre code {
+    @apply bg-transparent p-0 text-ink-100;
+  }
+  .prose-media table {
+    @apply my-6 w-full border-collapse overflow-hidden rounded-xl text-sm;
+  }
+  .prose-media th {
+    @apply border border-ink-200 bg-gradient-to-r from-brand-100 to-brand-50 px-3 py-2 text-left font-bold;
+  }
+  .prose-media td {
+    @apply border border-ink-200 px-3 py-2;
+  }
+}
+
+@layer utilities {
+  .line-clamp-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .line-clamp-3 {
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .line-clamp-4 {
+    display: -webkit-box;
+    -webkit-line-clamp: 4;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  /* gradien utama (mengikuti warna tema) */
+  .bg-rainbow {
+    background-image: linear-gradient(
+      120deg,
+      var(--color-brand-300) 0%,
+      var(--color-brand-400) 45%,
+      var(--color-brand-500) 100%
+    );
+  }
+  .bg-rainbow-soft {
+    background-image: linear-gradient(
+      120deg,
+      var(--color-soft-yellow) 0%,
+      color-mix(in srgb, var(--color-soft-yellow) 45%, var(--color-surface)) 50%,
+      var(--color-surface) 100%
+    );
+  }
+  .bg-splash-brand {
+    background-image: linear-gradient(140deg, #0a0a0a 0%, #262626 100%);
+  }
+  .bg-splash-mint {
+    background-image: linear-gradient(135deg, #fde047 0%, #facc15 100%);
+  }
+  .bg-splash-sun {
+    background-image: linear-gradient(135deg, #ffd951 0%, #facc15 100%);
+  }
+  .text-rainbow {
+    color: #0a0a0a;
+  }
+
+  /* dekorasi blob lembut */
+  .blob {
+    position: absolute;
+    border-radius: 9999px;
+    filter: blur(64px);
+    pointer-events: none;
+    z-index: 0;
+  }
+  .blob-brand {
+    background: color-mix(in srgb, var(--color-brand-400) 55%, transparent);
+  }
+  .blob-grape {
+    background: color-mix(in srgb, var(--color-brand-300) 60%, transparent);
+  }
+  .blob-mint {
+    background: rgba(255, 255, 255, 0.75);
+  }
+  .blob-sun {
+    background: rgba(234, 179, 8, 0.45);
+  }
+  .blob-coral {
+    background: rgba(10, 10, 10, 0.22);
+  }
+
+  /* efekRaise */
+  .lift {
+    @apply transition duration-300;
+  }
+  .lift:hover {
+    @apply -translate-y-1 shadow-pop;
+  }
+
+  .glass {
+    @apply border border-ink-200/70 bg-surface/80 backdrop-blur-xl;
+  }
+
+  .card-modern {
+    @apply rounded-3xl border border-ink-100 bg-surface shadow-soft transition duration-300;
+  }
+  .card-modern-hover {
+    @apply hover:-translate-y-1 hover:border-brand-200 hover:shadow-pop;
+  }
+
+  .chip {
+    @apply inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold;
+  }
+
+  .title-underline {
+    @apply relative;
+  }
+  .title-underline::after {
+    content: '';
+    position: absolute;
+    bottom: -0.25rem;
+    left: 0;
+    height: 0.25rem;
+    width: 2rem;
+    border-radius: 9999px;
+    background-image: linear-gradient(120deg, #facc15 0%, #eab308 100%);
+  }
+
+  .animate-float {
+    animation: float 9s ease-in-out infinite;
+  }
+  .animate-float-slow {
+    animation: float 13s ease-in-out infinite reverse;
+  }
+  .animate-pop {
+    animation: pop 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  }
+}
+
+@keyframes float {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(0, -26px, 0) scale(1.08);
+  }
+}
+
+@keyframes pop {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}

@@ -1,0 +1,33 @@
+---
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+import PageForm from '../../../components/admin/PageForm.astro';
+import { getAllMedia } from '../../../lib/content';
+import { savePage } from '../../../lib/admin/save';
+import { validateCsrfForm, ensureCsrfCookie, getCsrfSecret } from '../../../lib/csrf';
+
+const csrfToken = ensureCsrfCookie(Astro.cookies, getCsrfSecret());
+let error = '';
+
+if (Astro.request.method === 'POST') {
+  const form = await validateCsrfForm(Astro.cookies, Astro.request, getCsrfSecret()).catch(() => null);
+  if (!form) {
+    error = 'Permintahan tidak valid (CSRF).';
+  } else {
+    const result = await savePage(form);
+    if (result.error) {
+      error = result.error;
+    } else {
+      return Astro.redirect(`/admin/pages/${result.id}?msg=Halaman+berhasil+disimpan`);
+    }
+  }
+}
+
+const media = await getAllMedia();
+const mediaOptions = media
+  .filter((m) => m.mimeType?.startsWith('image/'))
+  .map((m) => ({ id: m.id, url: m.url, filename: m.originalName }));
+---
+
+<AdminLayout title="Buat Halaman" active="pages">
+  <PageForm mediaOptions={mediaOptions} error={error} csrfToken={csrfToken} />
+</AdminLayout>

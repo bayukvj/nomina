@@ -1,0 +1,61 @@
+﻿---
+import Field from './Field.astro';
+
+interface Props {
+  category?: any;
+  categories?: { id: number; name: string }[];
+  error?: string;
+  csrfToken?: string;
+}
+
+const { category = null, categories = [], error = '', csrfToken = '' } = Astro.props;
+const action = category ? `/admin/categories/${category.id}` : '/admin/categories/new';
+---
+
+{
+  error && (
+    <div class="mb-5 rounded-lg border border-brand-200 bg-brand-50 px-4 py-3 text-sm font-medium text-brand-700">
+      {error}
+    </div>
+  )
+}
+
+<form method="post" action={action} class="max-w-2xl space-y-5 rounded-xl border border-ink-200 bg-surface p-6">
+  <input type="hidden" name="_csrf" value={csrfToken} />
+  <Field name="name" label="Nama Kategori" required value={category?.name ?? ''} />
+  <Field name="slug" label="Slug URL" value={category?.slug ?? ''} help="Biarkan kosong untuk dibuat otomatis." />
+  <Field name="description" label="Deskripsi" type="textarea" rows={3} value={category?.description ?? ''} />
+  <Field
+    name="parentId"
+    label="Kategori Induk"
+    type="select"
+    value={category?.parentId ?? ''}
+    options={[
+      { value: '', label: '— Tanpa induk —' },
+      ...categories
+        .filter((c) => c.id !== category?.id)
+        .map((c) => ({ value: c.id, label: c.name })),
+    ]}
+  />
+  <Field
+    name="position"
+    label="Posisi"
+    type="number"
+    value={category?.position ?? 0}
+    help="Semakin kecil, semakin tampil di atas."
+  />
+  <Field name="seoTitle" label="SEO Title" value={category?.seoTitle ?? ''} />
+  <Field name="seoDescription" label="SEO Description" type="textarea" rows={2} value={category?.seoDescription ?? ''} />
+
+  <div class="flex gap-2 pt-2">
+    <button type="submit" class="rounded-lg bg-brand-400 px-5 py-2.5 text-sm font-bold text-brand-ink hover:bg-brand-300">
+      {category ? 'Perbarui' : 'Simpan Kategori'}
+    </button>
+    <a
+      href="/admin/categories"
+      class="rounded-lg border border-ink-200 px-5 py-2.5 text-sm font-semibold text-ink-700 hover:border-brand-500"
+    >
+      Batal
+    </a>
+  </div>
+</form>

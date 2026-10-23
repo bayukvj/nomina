@@ -1,0 +1,58 @@
+---
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+import PostForm from '../../../components/admin/PostForm.astro';
+import { getAllCategories, getAllTags, getAllMedia, getAllUsers } from '../../../lib/content';
+import { savePost } from '../../../lib/admin/save';
+import { canChooseAuthor, canManageCategories } from '../../../lib/auth';
+
+import { validateCsrfForm, ensureCsrfCookie, getCsrfSecret } from '../../../lib/csrf';
+
+const user = Astro.locals.user;
+const csrfToken = ensureCsrfCookie(Astro.cookies, getCsrfSecret());
+let error = '';
+
+if (Astro.request.method === 'POST') {
+  const form = await validateCsrfForm(Astro.cookies, Astro.request, getCsrfSecret()).catch(() => null);
+  if (!form) {
+    error = 'Permintaan tidak valid (CSRF).';
+  } else {
+    const result = await savePost(form, user!.id, undefined, {
+      canChooseAuthor: canChooseAuthor(user!.role),
+      canCreateCategory: canManageCategories(user?.role),
+    });
+    if (result.error) {
+      error = result.error;
+    } else {
+      return Astro.redirect(`/admin/posts/${result.id}?msg=Post+berhasil+disimpan`);
+    }
+  }
+}
+
+const [categories, tags, media, authors] = await Promise.all([
+  getAllCategories(),
+  getAllTags(),
+  getAllMedia(),
+  getAllUsers(),
+]);
+
+const mediaOptions = media
+  .filter((m) => m.mimeType?.startsWith('image/'))
+  .map((m) => ({ id: m.id, url: m.url, filename: m.originalName }));
+
+const authorOptions = authors.map((a) => ({ id: a.id, name: a.name, role: a.role }));
+---
+
+<AdminLayout title="Tulis Post" active="posts">
+  <PostForm
+    categories={categories}
+    tags={tags}
+    mediaOptions={mediaOptions}
+    authors={authorOptions}
+    currentUserId={user?.id}
+    currentUserName={user?.name}
+    canChooseAuthor={canChooseAuthor(user?.role)}
+    canCreateCategory={canManageCategories(user?.role)}
+    error={error}
+    csrfToken={csrfToken}
+  />
+</AdminLayout>

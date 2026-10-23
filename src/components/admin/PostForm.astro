@@ -1,0 +1,506 @@
+---
+import Field from './Field.astro';
+import Icon from './Icon.astro';
+import MediaPicker from './MediaPicker.astro';
+import RichEditor from './RichEditor.astro';
+import { roleLabel } from '../../lib/auth';
+
+interface Props {
+  post?: any;
+  categories?: { id: number; name: string }[];
+  tags?: { id: number; name: string }[];
+  mediaOptions?: { id: number; url: string; filename: string }[];
+  authors?: { id: number; name: string; role?: string }[];
+  currentUserId?: number;
+  currentUserName?: string;
+  canChooseAuthor?: boolean;
+  canCreateCategory?: boolean;
+  error?: string;
+  csrfToken?: string;
+}
+
+const {
+  post = null,
+  categories = [],
+  tags = [],
+  mediaOptions = [],
+  authors = [],
+  currentUserId = undefined,
+  currentUserName = undefined,
+  canChooseAuthor = true,
+  canCreateCategory = false,
+  error = '',
+  csrfToken = '',
+} = Astro.props;
+
+const selectedTags = (post?.tags ?? []).map((t: any) => t.id ?? t);
+const selectedCategoryIds = [
+  ...(post?.categories ?? []).map((c: any) => c.id),
+];
+if (post?.categoryId && !selectedCategoryIds.includes(post.categoryId)) {
+  selectedCategoryIds.push(post.categoryId);
+}
+
+const toLocalInput = (value: Date | string | null | undefined) => {
+  if (!value) return '';
+  const d = typeof value === 'string' ? new Date(value) : value;
+  if (Number.isNaN(d.getTime())) return '';
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+};
+
+const action = post ? `/admin/posts/${post.id}` : '/admin/posts/new';
+---
+
+{
+  error && (
+    <div class="mb-5 rounded-lg border border-brand-200 bg-brand-50 px-4 py-3 text-sm font-medium text-brand-700">
+      {error}
+    </div>
+  )
+}
+
+<form method="post" action={action} class="grid gap-6 lg:grid-cols-3">
+  <input type="hidden" name="_csrf" value={csrfToken} />
+  <div class="space-y-5 lg:col-span-2">
+    <section class="rounded-xl border border-ink-200 bg-surface p-5">
+      <h2 class="mb-4 text-base font-black text-ink-900">Konten</h2>
+      <div class="space-y-5">
+        <Field name="title" label="Judul" required value={post?.title ?? ''} placeholder="Judul artikel" />
+        <Field
+          name="slug"
+          label="Slug URL"
+          value={post?.slug ?? ''}
+          help="Biarkan kosong untuk dibuat otomatis dari judul."
+        />
+        <Field
+          name="excerpt"
+          label="Ringkasan / Excerpt"
+          type="textarea"
+          rows={3}
+          value={post?.excerpt ?? ''}
+          help="Tampil di beranda dan hasil pencarian."
+        />
+        <RichEditor
+          name="content"
+          value={post?.content ?? ''}
+          height={520}
+          placeholder="Tulis isi artikel di sini. Gunakan toolbar untuk format teks, sisipkan gambar dari pustaka media, atau tabel."
+          help="Editor klasik: bold, heading, daftar, tautan, kutipan, tabel, dan sisipkan gambar dari pustaka media."
+        />
+      </div>
+    </section>
+
+    <section class="rounded-xl border border-ink-200 bg-surface p-5">
+      <h2 class="mb-4 text-base font-black text-ink-900">Media & Multimedia</h2>
+      <div class="grid gap-5 sm:grid-cols-2">
+        <MediaPicker
+          name="coverMediaId"
+          label="Gambar Sampul"
+          value={post?.coverMediaId ?? ''}
+          media={mediaOptions}
+          help="Dipakai sebagai sampul artikel. Biarkan kosong untuk memakai thumbnail video otomatis."
+        />
+        <MediaPicker
+          name="ogImageId"
+          label="Gambar Open Graph"
+          value={post?.ogImageId ?? ''}
+          media={mediaOptions}
+          help="Gambar saat tautan dibagikan di media sosial."
+        />
+        <Field
+          name="coverCaption"
+          label="Caption Gambar Sampul"
+          type="textarea"
+          rows={2}
+          value={post?.coverCaption ?? ''}
+          help="Keterangan singkat di bawah gambar. Contoh: Suasana di Gedung DPR RI, Rabu (9/6/2026). Foto: Redaksi Nomina"
+        />
+        <Field
+          name="coverAlt"
+          label="Teks Alternatif (Alt)"
+          value={post?.coverAlt ?? ''}
+          help="Deskripsi gambar untuk pembaca layar (SEO & aksesibilitas). Dikosongkan berarti memakai judul artikel."
+        />
+        <Field
+          name="videoUrl"
+          label="URL Video"
+          type="url"
+          value={post?.videoUrl ?? ''}
+          placeholder="https://www.youtube.com/watch?v=..."
+          help="Boleh tempel URL YouTube biasa (watch/shorts/youtu.be), Vimeo, atau berkas video yang diunggah ke pustaka media. URL YouTube otomatis diubah menjadi format embed saat dipublikasikan."
+        />
+        <div class="space-y-2">
+          <button
+            type="button"
+            id="gen-thumbnail"
+            class="inline-flex items-center gap-2 rounded-lg border border-ink-200 bg-surface px-3 py-2 text-xs font-bold text-ink-700 transition hover:border-brand-400 hover:text-brand-700"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-4 w-4">
+              <path d="M4 4h16v16H4z"></path>
+              <path d="m10 9 5 3-5 3z"></path>
+            </svg>
+            Ambil thumbnail otomatis
+          </button>
+          <p id="gen-thumb-status" class="text-xs text-ink-500"></p>
+        </div>
+        <Field
+          name="location"
+          label="Lokasi"
+          value={post?.location ?? ''}
+          placeholder="Jakarta, Indonesia"
+        />
+      </div>
+    </section>
+
+    <section class="rounded-xl border border-ink-200 bg-surface p-5">
+      <h2 class="mb-4 text-base font-black text-ink-900">SEO Post</h2>
+      <div class="space-y-5">
+        <Field name="metaTitle" label="Meta Title" value={post?.metaTitle ?? ''} />
+        <Field
+          name="metaDescription"
+          label="Meta Description"
+          type="textarea"
+          rows={2}
+          value={post?.metaDescription ?? ''}
+        />
+        <Field
+          name="metaKeywords"
+          label="Meta Keywords"
+          value={post?.metaKeywords ?? ''}
+          help="Pisahkan dengan koma."
+        />
+      </div>
+    </section>
+  </div>
+
+  <div class="space-y-5">
+    <section class="rounded-xl border border-ink-200 bg-surface p-5">
+      <h2 class="mb-4 text-base font-black text-ink-900">Publikasi</h2>
+      <div class="space-y-5">
+        <Field
+          name="status"
+          label="Status"
+          type="select"
+          value={post?.status ?? 'draft'}
+          options={[
+            { value: 'draft', label: 'Draft' },
+            { value: 'published', label: 'Published' },
+            { value: 'scheduled', label: 'Scheduled' },
+            { value: 'archived', label: 'Archived' },
+          ]}
+        />
+        <Field
+          name="publishedAt"
+          label="Tanggal Publikasi"
+          type="date"
+          value={toLocalInput(post?.publishedAt)}
+        />
+        <Field
+          name="type"
+          label="Tipe Konten"
+          type="select"
+          value={post?.type ?? 'article'}
+          options={[
+            { value: 'article', label: 'Artikel' },
+            { value: 'news', label: 'Berita' },
+            { value: 'video', label: 'Video' },
+            { value: 'photo', label: 'Foto' },
+            { value: 'gallery', label: 'Galeri' },
+          ]}
+        />
+        {
+          canChooseAuthor ? (
+            <Field
+              name="authorId"
+              label="Penulis Artikel"
+              type="select"
+              value={post?.authorId ?? currentUserId ?? ''}
+              options={[
+                { value: '', label: '— Pilih penulis —' },
+                ...authors.map((a) => ({
+                  value: a.id,
+                  label: a.name + (a.role ? ' (' + (roleLabel[a.role] ?? a.role) + ')' : ''),
+                })),
+              ]}
+              help="Nama yang tampil di header artikel dan kotak penulis."
+            />
+          ) : (
+            <div class="space-y-1.5">
+              <span class="block text-sm font-semibold text-ink-800">Penulis Artikel</span>
+              <p class="rounded-xl border border-dashed border-ink-300 bg-ink-50 px-4 py-3 text-sm text-ink-600">
+                Artikel ini tercatat atas nama Anda
+                {currentUserName ? (
+                  <span class="font-bold text-ink-900"> — {currentUserName}</span>
+                ) : null}
+                . Penetapan penulis lain hanya dapat dilakukan oleh Editor atau Administrator.
+              </p>
+            </div>
+          )
+        }
+         <Field
+          name="categoryId"
+          label="Kategori"
+          type="multiselect"
+          value={selectedCategoryIds.map(String)}
+          options={categories.map((c) => ({ value: c.id, label: c.name }))}
+          help={canCreateCategory ? "Pilih kategori. Admin bisa tambah kategori baru di bawah." : "Pilih kategori untuk artikel ini."}
+        />
+        {canCreateCategory && (
+          <div class="space-y-1.5 pt-2">
+            <label for="newCategory-input" class="block text-sm font-semibold text-ink-800">
+              Buat Kategori Baru
+            </label>
+            <input type="hidden" name="newCategory" id="newCategory-hidden" value="" />
+            <div class="flex items-center gap-2 rounded-lg border border-ink-200 bg-surface px-3 py-2 min-h-[42px]">
+              <input
+                id="newCategory-input"
+                type="text"
+                placeholder="Ketik nama kategori baru"
+                class="flex-1 border-0 outline-none bg-transparent text-sm text-ink-800 min-w-[120px]"
+              />
+              <button
+                type="button"
+                id="add-category-btn"
+                class="rounded-lg border border-brand-400 bg-brand-100 px-3 py-1.5 text-xs font-semibold text-brand-700 opacity-50 transition hover:opacity-100"
+                disabled
+              >
+                Tambah
+              </button>
+            </div>
+            <div id="category-badge" class="flex flex-wrap gap-2 pt-1"></div>
+            <p class="text-xs text-ink-500">
+              Tekan Enter atau klik Tambah untuk membuat kategori baru. Hanya Administrator.
+            </p>
+          </div>
+        )}
+        <Field
+          name="tags"
+          label="Tag"
+          type="multiselect"
+          value={selectedTags}
+          options={tags.map((t) => ({ value: t.id, label: t.name }))}
+        />
+        <div class="space-y-1.5">
+          <label for="newTags" class="block text-sm font-semibold text-ink-800">
+            Tambah Tag Baru
+          </label>
+          <div
+            class="flex flex-wrap items-center gap-2 rounded-lg border border-ink-200 bg-surface px-3 py-2 min-h-[42px]"
+            data-tag-cloud
+          >
+            <input
+              id="newTags-input"
+              type="text"
+              placeholder="Ketik nama tag, tekan Enter untuk tambah"
+              class="flex-1 min-w-[140px] border-0 outline-none bg-transparent text-sm text-ink-800"
+            />
+          </div>
+          <p class="text-xs text-ink-500">
+            Tekan Enter untuk menambah tag. Tag baru akan dibuat otomatis dan terhubung dengan artikel ini.
+          </p>
+        </div>
+
+      </div>
+    </section>
+
+    <section class="rounded-xl border border-ink-200 bg-surface p-5">
+      <h2 class="mb-4 text-base font-black text-ink-900">Opsi</h2>
+      <div class="space-y-3">
+        <Field name="isFeatured" label="Artikel Unggulan" type="switch" value={post?.isFeatured ?? false} help="Tampilkan di slot utama beranda" />
+        <Field name="allowComments" label="Izinkan Komentar" type="switch" value={post?.allowComments ?? true} help="Aktifkan kolom komentar" />
+      </div>
+    </section>
+
+    <div class="sticky bottom-4 flex gap-2 rounded-xl border border-ink-200 bg-surface p-4 shadow-lg">
+      <button
+        type="submit"
+        class="flex-1 rounded-lg bg-brand-400 px-4 py-2.5 text-sm font-bold text-brand-ink hover:bg-brand-300"
+      >
+        {post ? 'Perbarui Post' : 'Simpan Post'}
+      </button>
+      <a
+        href="/admin/posts"
+        class="rounded-lg border border-ink-200 px-4 py-2.5 text-sm font-semibold text-ink-700 hover:border-brand-500"
+      >
+        Batal
+      </a>
+    </div>
+  </div>
+</form>
+
+<script is:inline>
+  (function () {
+    const btn = document.getElementById('gen-thumbnail');
+    const status = document.getElementById('gen-thumb-status');
+    const videoInput = document.querySelector('input[name="videoUrl"]');
+    const coverSelect = document.querySelector('select[name="coverMediaId"]');
+
+    if (!btn) return;
+
+    const say = (text, tone) => {
+      if (!status) return;
+      status.textContent = text;
+      status.className =
+        'text-xs ' + (tone === 'error' ? 'text-brand-600' : tone === 'ok' ? 'text-mint-600' : 'text-ink-500');
+    };
+
+    const isYouTube = (url) =>
+      /youtu\.?be/.test(url) || /youtube(-nocookie)?\.com/.test(url);
+
+    btn.addEventListener('click', async function () {
+      const url = (videoInput && videoInput.value ? videoInput.value : '').trim();
+
+      if (!url) {
+        say('Isi URL video terlebih dahulu.', 'error');
+        return;
+      }
+
+      if (isYouTube(url)) {
+        say('Thumbnail akan diambil otomatis dari YouTube (i.ytimg.com) — tidak perlu diunggah.', 'ok');
+        return;
+      }
+
+      say('Membuat thumbnail dari video…');
+
+      try {
+        const video = document.createElement('video');
+        video.crossOrigin = 'anonymous';
+        video.muted = true;
+        video.playsInline = true;
+        video.preload = 'auto';
+        video.src = url;
+
+        await new Promise((resolve, reject) => {
+          video.onloadeddata = resolve;
+          video.onerror = () => reject(new Error('Video tidak dapat dimuat dari URL tersebut.'));
+          setTimeout(() => reject(new Error('Waktu memuat video habis.')), 15000);
+        });
+
+        const seekTo = Math.min(1, (video.duration || 2) * 0.1);
+        video.currentTime = seekTo;
+        await new Promise((resolve) => {
+          video.onseeked = resolve;
+          setTimeout(resolve, 2000);
+        });
+
+        const canvas = document.createElement('canvas');
+        canvas.width = video.videoWidth || 1280;
+        canvas.height = video.videoHeight || 720;
+        canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+
+        const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.85));
+        if (!blob) throw new Error('Browser tidak dapat membuat gambar dari video ini.');
+
+        const fd = new FormData();
+        fd.append('file', blob, 'thumbnail-video.jpg');
+        fd.append('alt', 'Thumbnail video');
+
+        const res = await fetch('/api/admin/media', { method: 'POST', body: fd });
+        const data = await res.json().catch(() => ({}));
+
+        if (!res.ok) throw new Error(typeof data === 'string' ? data : 'Gagal mengunggah thumbnail.');
+
+        if (coverSelect) {
+          const opt = document.createElement('option');
+          opt.value = String(data.id);
+          opt.textContent = 'thumbnail-video.jpg (otomatis)';
+          opt.selected = true;
+          coverSelect.appendChild(opt);
+        }
+
+        say('Thumbnail berhasil dibuat dan langsung dipilih sebagai gambar sampul.', 'ok');
+      } catch (err) {
+        say(
+          'Gagal membuat thumbnail: ' +
+            (err && err.message ? err.message : 'unknown') +
+            '. Untuk video dari server lain, unggah gambar sampul secara manual.',
+          'error',
+        );
+      }
+    });
+  })();
+
+  (function () {
+    const cloud = document.querySelector('[data-tag-cloud]');
+    const input = cloud?.querySelector('#newTags-input');
+    const hidden = document.createElement('input');
+    hidden.type = 'hidden';
+    hidden.name = 'newTags';
+    hidden.value = '';
+
+    if (!cloud || !input) return;
+
+    const updateHidden = () => {
+      const tags = Array.from(cloud.querySelectorAll('[data-tag-badge]'))
+        .map((el) => el.getAttribute('data-tag-name')?.trim() ?? '')
+        .filter(Boolean);
+      hidden.value = tags.join(', ');
+      if (!cloud.contains(hidden)) cloud.appendChild(hidden);
+    };
+
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ',') {
+        e.preventDefault();
+        const tag = input.value.trim();
+        if (!tag) return;
+
+        const exists = Array.from(cloud.querySelectorAll('[data-tag-badge]'))
+          .some((el) => el.textContent.trim() === tag);
+        if (exists) {
+          input.value = '';
+          return;
+        }
+
+        const badge = document.createElement('span');
+        badge.setAttribute('data-tag-badge', '');
+        badge.setAttribute('data-tag-name', tag);
+        badge.className = 'inline-flex items-center gap-1 rounded-full bg-brand-100 px-2.5 py-1 text-xs font-semibold text-brand-700';
+        badge.innerHTML = tag + '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-3 w-3 cursor-pointer rounded-full p-0.5 text-brand-600 transition hover:text-red-600 hover:bg-brand-200"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>';
+
+        badge.querySelector('svg').addEventListener('click', () => {
+          badge.remove();
+          updateHidden();
+        });
+
+        cloud.insertBefore(badge, input);
+        input.value = '';
+        updateHidden();
+      }
+    });
+  })();
+
+  (function () {
+    const catInput = document.getElementById('newCategory-input');
+    const catBtn = document.getElementById('add-category-btn');
+    const catHidden = document.getElementById('newCategory-hidden');
+    const catBadge = document.getElementById('category-badge');
+    if (!catInput || !catBtn || !catHidden || !catBadge) return;
+
+    catInput.addEventListener('input', () => {
+      catBtn.disabled = catInput.value.trim().length === 0;
+    });
+
+    catInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        addCategory();
+      }
+    });
+
+    catBtn.addEventListener('click', addCategory);
+
+    function addCategory() {
+      const val = catInput.value.trim();
+      if (!val || catHidden.value) return;
+
+      catHidden.value = val;
+      catInput.value = '';
+      catBtn.disabled = true;
+
+      catBadge.innerHTML =
+        '<span class="inline-flex items-center gap-1 rounded-full bg-brand-100 px-2.5 py-1 text-xs font-semibold text-brand-700">' +
+        val + ' <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-3 w-3 cursor-pointer" onclick="this.closest(\'span\').remove(); document.getElementById(\'newCategory-hidden\').value=\'\';"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></span>';
+    }
+  })();
+</script>

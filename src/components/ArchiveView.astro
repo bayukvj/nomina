@@ -1,0 +1,74 @@
+---
+import Breadcrumb from './Breadcrumb.astro';
+import PostCard from './PostCard.astro';
+import Sidebar from './Sidebar.astro';
+import Pagination from './Pagination.astro';
+import Ads from './Ads.astro';
+
+interface Props {
+  title: string;
+  subtitle?: string;
+  posts: any[];
+  page?: number;
+  totalPages?: number;
+  baseUrl: string;
+  extraParams?: Record<string, string>;
+  breadcrumbs?: { label: string; href?: string }[];
+  emptyMessage?: string;
+}
+
+const {
+  title,
+  subtitle,
+  posts,
+  page = 1,
+  totalPages = 1,
+  baseUrl,
+  extraParams = {},
+  breadcrumbs = [],
+  emptyMessage = 'Belum ada artikel pada bagian ini.',
+} = Astro.props;
+---
+
+<Breadcrumb items={[{ label: 'Beranda', href: '/' }, ...breadcrumbs, { label: title }]} />
+
+<section class="relative overflow-hidden bg-rainbow-soft py-8">
+  <div class="blob blob-brand -top-20 -left-16 h-64 w-64 opacity-40"></div>
+  <div class="blob blob-mint -bottom-24 right-10 h-64 w-64 opacity-40"></div>
+  <div class="container-site relative z-10">
+    <h1 class="font-display text-3xl font-extrabold tracking-tight text-ink-900 sm:text-4xl">
+      {title}
+    </h1>
+    {subtitle && <p class="mt-2 max-w-2xl text-ink-600">{subtitle}</p>}
+  </div>
+</section>
+
+<div class="container-site grid gap-10 py-10 lg:grid-cols-[1fr_320px]">
+  <div class="min-w-0">
+    {
+      posts.length === 0 ? (
+        <div class="rounded-3xl border border-dashed border-ink-300 bg-surface p-14 text-center text-ink-500">
+          <span class="text-4xl">🗂️</span>
+          <p class="mt-3">{emptyMessage}</p>
+        </div>
+      ) : (
+      <div class="grid gap-6 sm:grid-cols-2">
+        {
+          posts.map((p, i) => (
+            <>
+              <PostCard post={p.post} />
+              {(i === 1 || (posts.length <= 2 && i === posts.length - 1)) && (
+                <Ads placement="between_posts" class="sm:col-span-2" />
+              )}
+            </>
+          ))
+        }
+      </div>
+      )
+    }
+
+    <Pagination page={page} totalPages={totalPages} baseUrl={baseUrl} extraParams={extraParams} />
+  </div>
+
+  <Sidebar />
+</div>
